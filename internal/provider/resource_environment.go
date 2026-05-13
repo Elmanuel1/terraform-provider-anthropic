@@ -10,6 +10,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -23,13 +25,15 @@ type EnvironmentResource struct {
 }
 
 type EnvironmentModel struct {
-	Id             types.String `tfsdk:"id"`
-	Name           types.String `tfsdk:"name"`
-	NetworkingType types.String `tfsdk:"networking_type"`
-	AllowedHosts   types.List   `tfsdk:"allowed_hosts"`
-	CreatedAt      types.String `tfsdk:"created_at"`
-	UpdatedAt      types.String `tfsdk:"updated_at"`
-	ArchivedAt     types.String `tfsdk:"archived_at"`
+	Id                   types.String `tfsdk:"id"`
+	Name                 types.String `tfsdk:"name"`
+	NetworkingType       types.String `tfsdk:"networking_type"`
+	AllowedHosts         types.List   `tfsdk:"allowed_hosts"`
+	AllowMCPServers      types.Bool   `tfsdk:"allow_mcp_servers"`
+	AllowPackageManagers types.Bool   `tfsdk:"allow_package_managers"`
+	CreatedAt            types.String `tfsdk:"created_at"`
+	UpdatedAt            types.String `tfsdk:"updated_at"`
+	ArchivedAt           types.String `tfsdk:"archived_at"`
 }
 
 type environmentAPIResponse struct {
@@ -37,13 +41,22 @@ type environmentAPIResponse struct {
 	Name string `json:"name"`
 	Config *struct {
 		Networking *struct {
-			Type         string   `json:"type"`
-			AllowedHosts []string `json:"allowed_hosts"`
+			Type                string   `json:"type"`
+			AllowedHosts        []string `json:"allowed_hosts"`
+			AllowMCPServers     *bool    `json:"allow_mcp_servers"`
+			AllowPackageManagers *bool   `json:"allow_package_managers"`
 		} `json:"networking"`
 	} `json:"config"`
 	CreatedAt  string  `json:"created_at"`
 	UpdatedAt  string  `json:"updated_at"`
 	ArchivedAt *string `json:"archived_at"`
+}
+
+func nullableBool(b *bool) types.Bool {
+	if b == nil {
+		return types.BoolValue(false)
+	}
+	return types.BoolValue(*b)
 }
 
 func (m *EnvironmentModel) fill(e environmentAPIResponse) {
@@ -57,15 +70,22 @@ func (m *EnvironmentModel) fill(e environmentAPIResponse) {
 	if e.Config == nil || e.Config.Networking == nil {
 		m.NetworkingType = types.StringValue("unrestricted")
 		m.AllowedHosts = emptyHosts
+		m.AllowMCPServers = types.BoolValue(false)
+		m.AllowPackageManagers = types.BoolValue(false)
 		return
 	}
-	m.NetworkingType = types.StringValue(e.Config.Networking.Type)
-	if len(e.Config.Networking.AllowedHosts) == 0 {
+
+	n := e.Config.Networking
+	m.NetworkingType = types.StringValue(n.Type)
+	m.AllowMCPServers = nullableBool(n.AllowMCPServers)
+	m.AllowPackageManagers = nullableBool(n.AllowPackageManagers)
+
+	if len(n.AllowedHosts) == 0 {
 		m.AllowedHosts = emptyHosts
 		return
 	}
-	vals := make([]attr.Value, len(e.Config.Networking.AllowedHosts))
-	for i, h := range e.Config.Networking.AllowedHosts {
+	vals := make([]attr.Value, len(n.AllowedHosts))
+	for i, h := range n.AllowedHosts {
 		vals[i] = types.StringValue(h)
 	}
 	hosts, _ := types.ListValue(types.StringType, vals)
@@ -110,6 +130,20 @@ func (r *EnvironmentResource) Schema(_ context.Context, _ resource.SchemaRequest
 				PlanModifiers: []planmodifier.List{listplanmodifier.RequiresReplace()},
 				Description:   "Allowed outbound hosts when networking_type is limited.",
 			},
+			"allow_mcp_servers": schema.BoolAttribute{
+				Optional:      true,
+				Computed:      true,
+				Default:       booldefault.StaticBool(false),
+				PlanModifiers: []planmodifier.Bool{boolplanmodifier.RequiresReplace()},
+				Description:   "Allow the agent session to connect to MCP servers.",
+			},
+			"allow_package_managers": schema.BoolAttribute{
+				Optional:      true,
+				Computed:      true,
+				Default:       booldefault.StaticBool(false),
+				PlanModifiers: []planmodifier.Bool{boolplanmodifier.RequiresReplace()},
+				Description:   "Allow the agent session to access package managers (npm, pip, etc).",
+			},
 			"created_at": schema.StringAttribute{
 				Computed:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
@@ -132,10 +166,17 @@ func (r *EnvironmentResource) Configure(_ context.Context, req resource.Configur
 	r.data = data
 }
 
+func boolPtr(b bool) *bool { return &b }
+
 func (r *EnvironmentResource) buildConfig(ctx context.Context, data EnvironmentModel) map[string]any {
 	var hosts []string
 	data.AllowedHosts.ElementsAs(ctx, &hosts, false)
-	networking := map[string]any{"type": data.NetworkingType.ValueString()}
+
+	networking := map[string]any{
+		"type":                  data.NetworkingType.ValueString(),
+		"allow_mcp_servers":     data.AllowMCPServers.ValueBool(),
+		"allow_package_managers": data.AllowPackageManagers.ValueBool(),
+	}
 	if data.NetworkingType.ValueString() == "limited" && len(hosts) > 0 {
 		networking["allowed_hosts"] = hosts
 	}
