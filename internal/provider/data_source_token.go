@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
@@ -140,11 +141,13 @@ func resolveWorkspaceID(ctx context.Context, apiKey, name string) (string, error
 		return "", fmt.Errorf("parsing workspaces response: %w", err)
 	}
 
+	var available []string
 	for _, w := range result.Data {
 		if w.Name == name {
 			return w.ID, nil
 		}
+		available = append(available, fmt.Sprintf("%q", w.Name))
 	}
 
-	return "", fmt.Errorf("workspace %q not found — verify the name matches the Anthropic Console", name)
+	return "", fmt.Errorf("workspace %q not found — available workspaces: [%s]", name, strings.Join(available, ", "))
 }
