@@ -3,12 +3,16 @@ package provider
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"strings"
 	"time"
+
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
 const anthropicTokenURL = "https://api.anthropic.com/v1/oauth/token"
@@ -59,6 +63,37 @@ func readWIFConfig() (*wifConfig, error) {
 		ServiceAccountID: svc,
 		jwt:              jwt,
 	}, nil
+}
+
+func logJWTClaims(ctx context.Context, cfg *wifConfig) {
+	if cfg == nil {
+		return
+	}
+	parts := strings.Split(cfg.jwt, ".")
+	if len(parts) < 2 {
+		tflog.Warn(ctx, "TFC OIDC token does not look like a JWT")
+		return
+	}
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		tflog.Warn(ctx, "failed to decode JWT payload", map[string]any{"error": err.Error()})
+		return
+	}
+	var claims map[string]any
+	if err := json.Unmarshal(payload, &claims); err != nil {
+		tflog.Warn(ctx, "failed to parse JWT claims", map[string]any{"error": err.Error()})
+		return
+	}
+	tflog.Info(ctx, "TFC OIDC token claims", map[string]any{
+		"sub": claims["sub"],
+		"aud": claims["aud"],
+		"iss": claims["iss"],
+	})
+	tflog.Info(ctx, "WIF config", map[string]any{
+		"federation_rule_id": cfg.FederationRuleID,
+		"organization_id":    cfg.OrganizationID,
+		"service_account_id": cfg.ServiceAccountID,
+	})
 }
 
 func mintToken(ctx context.Context, cfg *wifConfig, workspaceID string) (*mintedToken, error) {

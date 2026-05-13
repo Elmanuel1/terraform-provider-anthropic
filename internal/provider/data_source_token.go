@@ -82,6 +82,8 @@ func (d *tokenDataSource) Read(ctx context.Context, req datasource.ReadRequest, 
 		return
 	}
 
+	logJWTClaims(ctx, d.data.cfg)
+
 	tflog.Info(ctx, "minting WIF token", map[string]any{
 		"workspace_name": workspaceName,
 		"workspace_id":   workspaceID,
