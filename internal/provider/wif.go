@@ -65,6 +65,35 @@ func readWIFConfig() (*wifConfig, error) {
 	}, nil
 }
 
+func jwtClaims(token string) (sub, aud string) {
+	parts := strings.Split(token, ".")
+	if len(parts) < 2 {
+		return "<invalid-jwt>", "<invalid-jwt>"
+	}
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return "<decode-error>", "<decode-error>"
+	}
+	var claims map[string]any
+	if err := json.Unmarshal(payload, &claims); err != nil {
+		return "<parse-error>", "<parse-error>"
+	}
+	sub, _ = claims["sub"].(string)
+	switch v := claims["aud"].(type) {
+	case string:
+		aud = v
+	case []any:
+		var parts []string
+		for _, a := range v {
+			if s, ok := a.(string); ok {
+				parts = append(parts, s)
+			}
+		}
+		aud = strings.Join(parts, ",")
+	}
+	return sub, aud
+}
+
 func logJWTClaims(ctx context.Context, cfg *wifConfig) {
 	if cfg == nil {
 		return
@@ -123,7 +152,9 @@ func mintToken(ctx context.Context, cfg *wifConfig, workspaceID string) (*minted
 
 	raw, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("token exchange returned HTTP %d: %s", resp.StatusCode, raw)
+		sub, aud := jwtClaims(cfg.jwt)
+		return nil, fmt.Errorf("token exchange returned HTTP %d: %s\n  jwt.sub=%s jwt.aud=%s\n  federation_rule_id=%s organization_id=%s service_account_id=%s",
+			resp.StatusCode, raw, sub, aud, cfg.FederationRuleID, cfg.OrganizationID, cfg.ServiceAccountID)
 	}
 
 	var result struct {
