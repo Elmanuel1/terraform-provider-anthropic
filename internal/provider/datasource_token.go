@@ -2,19 +2,14 @@ package provider
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
-	"strings"
 
+	"github.com/Elmanuel1/terraform-provider-anthropic-wif/internal/auth"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
-
-const anthropicWorkspacesURL = "https://api.anthropic.com/v1/organizations/workspaces"
 
 type tokenDataSource struct {
 	data *providerData
@@ -76,20 +71,20 @@ func (d *tokenDataSource) Read(ctx context.Context, req datasource.ReadRequest, 
 
 	workspaceName := model.WorkspaceName.ValueString()
 
-	workspaceID, err := resolveWorkspaceID(ctx, d.data.apiKey, workspaceName)
+	workspaceID, err := auth.ResolveWorkspaceID(ctx, d.data.client.APIKey, workspaceName)
 	if err != nil {
 		resp.Diagnostics.AddError("Workspace resolution failed", err.Error())
 		return
 	}
 
-	logJWTClaims(ctx, d.data.cfg)
+	auth.LogJWTClaims(ctx, d.data.client.WIF)
 
 	tflog.Info(ctx, "minting WIF token", map[string]any{
 		"workspace_name": workspaceName,
 		"workspace_id":   workspaceID,
 	})
 
-	token, err := mintToken(ctx, d.data.cfg, workspaceID)
+	token, err := auth.MintToken(ctx, d.data.client.WIF, workspaceID)
 	if err != nil {
 		resp.Diagnostics.AddError("Token minting failed", err.Error())
 		return
@@ -111,54 +106,4 @@ func (d *tokenDataSource) Read(ctx context.Context, req datasource.ReadRequest, 
 	model.ExpiresAt = types.StringValue(token.ExpiresAt.Format("2006-01-02T15:04:05Z07:00"))
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &model)...)
-}
-
-func resolveWorkspaceID(ctx context.Context, apiKey, name string) (string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, anthropicWorkspacesURL, nil)
-	if err != nil {
-		return "", fmt.Errorf("building workspaces request: %w", err)
-	}
-	req.Header.Set("x-api-key", apiKey)
-	req.Header.Set("anthropic-version", "2023-06-01")
-	req.Header.Set("anthropic-beta", "admin-api-2025-05-21")
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("listing workspaces: %w", err)
-	}
-	defer resp.Body.Close()
-
-	raw, _ := io.ReadAll(resp.Body)
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("listing workspaces returned HTTP %d: %s", resp.StatusCode, raw)
-	}
-
-	var result struct {
-		Data []struct {
-			ID   string `json:"id"`
-			Name string `json:"name"`
-		} `json:"data"`
-	}
-	if err := json.Unmarshal(raw, &result); err != nil {
-		return "", fmt.Errorf("parsing workspaces response: %w", err)
-	}
-
-	var available []string
-	var defaultID string
-	for _, w := range result.Data {
-		if w.Name == name {
-			return w.ID, nil
-		}
-		if w.Name == "" {
-			defaultID = w.ID
-		}
-		available = append(available, fmt.Sprintf("%q", w.Name))
-	}
-
-	// empty workspace_name targets the default (null-named) workspace
-	if name == "" && defaultID != "" {
-		return defaultID, nil
-	}
-
-	return "", fmt.Errorf("workspace %q not found — available workspaces: [%s]", name, strings.Join(available, ", "))
 }

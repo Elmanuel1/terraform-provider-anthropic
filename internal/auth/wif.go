@@ -1,4 +1,4 @@
-package provider
+package auth
 
 import (
 	"bytes"
@@ -15,21 +15,21 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
-const anthropicTokenURL = "https://api.anthropic.com/v1/oauth/token"
+var anthropicTokenURL = "https://api.anthropic.com/v1/oauth/token"
 
-type wifConfig struct {
+type WIFConfig struct {
 	FederationRuleID string
 	OrganizationID   string
 	ServiceAccountID string
 	jwt              string // TFC-injected OIDC token, valid for the run
 }
 
-type mintedToken struct {
+type MintedToken struct {
 	AccessToken string
 	ExpiresAt   time.Time
 }
 
-func readWIFConfig() (*wifConfig, error) {
+func ReadWIFConfig() (*WIFConfig, error) {
 	rule := os.Getenv("ANTHROPIC_FEDERATION_RULE_ID")
 	org := os.Getenv("ANTHROPIC_ORGANIZATION_ID")
 	svc := os.Getenv("ANTHROPIC_SERVICE_ACCOUNT_ID")
@@ -57,7 +57,7 @@ func readWIFConfig() (*wifConfig, error) {
 		return nil, fmt.Errorf("incomplete WIF configuration, missing: %v", missing)
 	}
 
-	return &wifConfig{
+	return &WIFConfig{
 		FederationRuleID: rule,
 		OrganizationID:   org,
 		ServiceAccountID: svc,
@@ -94,7 +94,7 @@ func jwtClaims(token string) (sub, aud string) {
 	return sub, aud
 }
 
-func logJWTClaims(ctx context.Context, cfg *wifConfig) {
+func LogJWTClaims(ctx context.Context, cfg *WIFConfig) {
 	if cfg == nil {
 		return
 	}
@@ -125,7 +125,10 @@ func logJWTClaims(ctx context.Context, cfg *wifConfig) {
 	})
 }
 
-func mintToken(ctx context.Context, cfg *wifConfig, workspaceID string) (*mintedToken, error) {
+func MintToken(ctx context.Context, cfg *WIFConfig, workspaceID string) (*MintedToken, error) {
+	if cfg == nil {
+		return nil, fmt.Errorf("missing WIF config")
+	}
 	body, err := json.Marshal(map[string]string{
 		"grant_type":         "urn:ietf:params:oauth:grant-type:jwt-bearer",
 		"assertion":          cfg.jwt,
@@ -168,7 +171,7 @@ func mintToken(ctx context.Context, cfg *wifConfig, workspaceID string) (*minted
 		return nil, fmt.Errorf("token exchange returned empty access_token")
 	}
 
-	return &mintedToken{
+	return &MintedToken{
 		AccessToken: result.AccessToken,
 		ExpiresAt:   time.Now().Add(time.Duration(result.ExpiresIn) * time.Second),
 	}, nil
