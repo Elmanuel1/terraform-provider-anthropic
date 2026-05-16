@@ -27,21 +27,16 @@ type AgentResponse struct {
 }
 
 type AgentClient struct {
-	wif         *auth.WIFConfig
-	workspaceID string
-	httpClient  *http.Client
+	creds      auth.Credentials
+	httpClient *http.Client
 }
 
-func NewAgentClient(wif *auth.WIFConfig, workspaceID string) *AgentClient {
-	return &AgentClient{wif: wif, workspaceID: workspaceID, httpClient: defaultHTTPClient}
-}
-
-func (c *AgentClient) creds() auth.Credentials {
-	return auth.WIFBearer{Config: c.wif, WorkspaceID: c.workspaceID}
+func NewAgentClient(creds auth.Credentials) *AgentClient {
+	return &AgentClient{creds: creds, httpClient: defaultHTTPClient}
 }
 
 func (c *AgentClient) Create(ctx context.Context, body map[string]any) (*AgentResponse, error) {
-	raw, status, err := doWithCreds(ctx, c.httpClient, c.creds(), http.MethodPost, "/v1/agents", body)
+	raw, status, err := doWithCreds(ctx, c.httpClient, c.creds, http.MethodPost, "/v1/agents", body)
 	if err != nil {
 		return nil, fmt.Errorf("creating agent: %w", err)
 	}
@@ -57,7 +52,7 @@ func (c *AgentClient) Create(ctx context.Context, body map[string]any) (*AgentRe
 }
 
 func (c *AgentClient) Read(ctx context.Context, id string) (*AgentResponse, error) {
-	raw, status, err := doWithCreds(ctx, c.httpClient, c.creds(), http.MethodGet, "/v1/agents/"+id, nil)
+	raw, status, err := doWithCreds(ctx, c.httpClient, c.creds, http.MethodGet, "/v1/agents/"+id, nil)
 	if err != nil {
 		return nil, fmt.Errorf("reading agent: %w", err)
 	}
@@ -76,7 +71,7 @@ func (c *AgentClient) Read(ctx context.Context, id string) (*AgentResponse, erro
 }
 
 func (c *AgentClient) Update(ctx context.Context, id string, body map[string]any) (*AgentResponse, error) {
-	raw, status, err := doWithCreds(ctx, c.httpClient, c.creds(), http.MethodPost, "/v1/agents/"+id, body)
+	raw, status, err := doWithCreds(ctx, c.httpClient, c.creds, http.MethodPost, "/v1/agents/"+id, body)
 	if err != nil {
 		return nil, fmt.Errorf("updating agent: %w", err)
 	}
@@ -93,7 +88,7 @@ func (c *AgentClient) Update(ctx context.Context, id string, body map[string]any
 
 // Delete archives the agent via POST /v1/agents/{id}/archive.
 func (c *AgentClient) Delete(ctx context.Context, id string) error {
-	_, status, err := doWithCreds(ctx, c.httpClient, c.creds(), http.MethodPost, "/v1/agents/"+id+"/archive", nil)
+	_, status, err := doWithCreds(ctx, c.httpClient, c.creds, http.MethodPost, "/v1/agents/"+id+"/archive", nil)
 	if err != nil {
 		return fmt.Errorf("archiving agent: %w", err)
 	}

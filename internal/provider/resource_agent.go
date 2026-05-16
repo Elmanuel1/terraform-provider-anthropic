@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/Elmanuel1/terraform-provider-anthropic-wif/internal/auth"
 	"github.com/Elmanuel1/terraform-provider-anthropic-wif/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -165,7 +166,7 @@ func (r *AgentResource) Create(ctx context.Context, req resource.CreateRequest, 
 		return
 	}
 
-	c := client.NewAgentClient(r.data.wif, data.WorkspaceId.ValueString())
+	c := client.NewAgentClient(auth.WIFBearer{Config: r.data.wif, WorkspaceID: data.WorkspaceId.ValueString()})
 	agent, err := c.Create(ctx, buildAgentBody(data))
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to create agent: %s", err))
@@ -182,7 +183,7 @@ func (r *AgentResource) Read(ctx context.Context, req resource.ReadRequest, resp
 		return
 	}
 
-	c := client.NewAgentClient(r.data.wif, data.WorkspaceId.ValueString())
+	c := client.NewAgentClient(auth.WIFBearer{Config: r.data.wif, WorkspaceID: data.WorkspaceId.ValueString()})
 	agent, err := c.Read(ctx, data.Id.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read agent: %s", err))
@@ -206,7 +207,7 @@ func (r *AgentResource) Update(ctx context.Context, req resource.UpdateRequest, 
 	body := buildAgentBody(data)
 	body["version"] = data.Version.ValueInt64()
 
-	c := client.NewAgentClient(r.data.wif, data.WorkspaceId.ValueString())
+	c := client.NewAgentClient(auth.WIFBearer{Config: r.data.wif, WorkspaceID: data.WorkspaceId.ValueString()})
 	agent, err := c.Update(ctx, data.Id.ValueString(), body)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to update agent: %s", err))
@@ -223,7 +224,7 @@ func (r *AgentResource) Delete(ctx context.Context, req resource.DeleteRequest, 
 		return
 	}
 
-	c := client.NewAgentClient(r.data.wif, data.WorkspaceId.ValueString())
+	c := client.NewAgentClient(auth.WIFBearer{Config: r.data.wif, WorkspaceID: data.WorkspaceId.ValueString()})
 	if err := c.Delete(ctx, data.Id.ValueString()); err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to archive agent: %s", err))
 	}

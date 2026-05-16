@@ -21,26 +21,22 @@ type WorkspaceResponse struct {
 }
 
 type WorkspaceClient struct {
-	apiKey     string
+	creds      auth.Credentials
 	httpClient *http.Client
 	once       sync.Once
 	byName     map[string]string
 	fetchErr   error
 }
 
-func NewWorkspaceClient(apiKey string) *WorkspaceClient {
-	return &WorkspaceClient{apiKey: apiKey, httpClient: defaultHTTPClient}
-}
-
-func (c *WorkspaceClient) creds() auth.Credentials {
-	return auth.AdminAPIKey{Key: c.apiKey}
+func NewWorkspaceClient(creds auth.Credentials) *WorkspaceClient {
+	return &WorkspaceClient{creds: creds, httpClient: defaultHTTPClient}
 }
 
 // ResolveByName resolves a workspace name to its ID via the Admin API.
 // The workspace list is fetched once per client instance and cached.
 func (c *WorkspaceClient) ResolveByName(ctx context.Context, name string) (string, error) {
 	c.once.Do(func() {
-		raw, status, err := doWithCreds(ctx, c.httpClient, c.creds(), http.MethodGet, workspacesPath, nil)
+		raw, status, err := doWithCreds(ctx, c.httpClient, c.creds, http.MethodGet, workspacesPath, nil)
 		if err != nil {
 			c.fetchErr = fmt.Errorf("listing workspaces: %w", err)
 			return
@@ -84,7 +80,7 @@ func (c *WorkspaceClient) ResolveByName(ctx context.Context, name string) (strin
 
 func (c *WorkspaceClient) Create(ctx context.Context, name string) (*WorkspaceResponse, error) {
 	body := map[string]any{"name": name}
-	raw, status, err := doWithCreds(ctx, c.httpClient, c.creds(), http.MethodPost, workspacesPath, body)
+	raw, status, err := doWithCreds(ctx, c.httpClient, c.creds, http.MethodPost, workspacesPath, body)
 	if err != nil {
 		return nil, fmt.Errorf("creating workspace: %w", err)
 	}
@@ -100,7 +96,7 @@ func (c *WorkspaceClient) Create(ctx context.Context, name string) (*WorkspaceRe
 }
 
 func (c *WorkspaceClient) Read(ctx context.Context, id string) (*WorkspaceResponse, error) {
-	raw, status, err := doWithCreds(ctx, c.httpClient, c.creds(), http.MethodGet, workspacesPath+"/"+id, nil)
+	raw, status, err := doWithCreds(ctx, c.httpClient, c.creds, http.MethodGet, workspacesPath+"/"+id, nil)
 	if err != nil {
 		return nil, fmt.Errorf("reading workspace: %w", err)
 	}
@@ -119,7 +115,7 @@ func (c *WorkspaceClient) Read(ctx context.Context, id string) (*WorkspaceRespon
 }
 
 func (c *WorkspaceClient) Delete(ctx context.Context, id string) error {
-	_, status, err := doWithCreds(ctx, c.httpClient, c.creds(), http.MethodDelete, workspacesPath+"/"+id, nil)
+	_, status, err := doWithCreds(ctx, c.httpClient, c.creds, http.MethodDelete, workspacesPath+"/"+id, nil)
 	if err != nil {
 		return fmt.Errorf("deleting workspace: %w", err)
 	}
