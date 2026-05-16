@@ -12,12 +12,6 @@ import (
 	"github.com/Elmanuel1/terraform-provider-anthropic-wif/internal/auth"
 )
 
-const (
-	BaseURL    = "https://api.anthropic.com"
-	BetaHeader = "managed-agents-2026-04-01"
-	APIVersion = "2023-06-01"
-)
-
 type Config struct {
 	WIF        *auth.WIFConfig
 	APIKey     string // admin API key, used by workspace resource and token datasource
@@ -46,13 +40,12 @@ func DoRequest(ctx context.Context, cfg *Config, workspaceID, method, path strin
 		return nil, 0, fmt.Errorf("minting token: %w", err)
 	}
 
-	raw, status, err := doHTTP(ctx, cfg.httpClient(), method, BaseURL+path, body,
+	return doHTTP(ctx, cfg.httpClient(), method, auth.BaseURL+path, body,
 		func(req *http.Request) {
-			req.Header.Set("Authorization", "Bearer "+token.AccessToken)
-			req.Header.Set("anthropic-version", APIVersion)
-			req.Header.Set("anthropic-beta", BetaHeader)
+			req.Header.Set(auth.HeaderAuth, "Bearer "+token.AccessToken)
+			req.Header.Set(auth.HeaderVersion, auth.APIVersion)
+			req.Header.Set(auth.HeaderBeta, auth.AgentsBeta)
 		})
-	return raw, status, err
 }
 
 // DoAdminRequest calls the Anthropic Admin API using the provided credentials.
@@ -61,7 +54,7 @@ func DoAdminRequest(ctx context.Context, cfg *Config, creds auth.Credentials, me
 		return nil, 0, fmt.Errorf("missing client config")
 	}
 
-	req, err := buildRequest(ctx, method, BaseURL+path, body)
+	req, err := buildRequest(ctx, method, auth.BaseURL+path, body)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -85,7 +78,6 @@ func doHTTP(ctx context.Context, hc *http.Client, method, url string, body any, 
 		return nil, 0, err
 	}
 	setHeaders(req)
-	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := hc.Do(req)
 	if err != nil {
@@ -110,6 +102,6 @@ func buildRequest(ctx context.Context, method, url string, body any) (*http.Requ
 	if err != nil {
 		return nil, fmt.Errorf("building request: %w", err)
 	}
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(auth.HeaderContentType, "application/json")
 	return req, nil
 }

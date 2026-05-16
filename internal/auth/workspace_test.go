@@ -111,10 +111,10 @@ func TestAdminAPIKey_SetsHeaders(t *testing.T) {
 	if err := (AdminAPIKey{Key: "test-key"}).Authenticate(context.Background(), req); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if req.Header.Get("x-api-key") != "test-key" {
-		t.Errorf("x-api-key not set correctly")
+	if req.Header.Get(HeaderAPIKey) != "test-key" {
+		t.Errorf("%s not set correctly", HeaderAPIKey)
 	}
-	if req.Header.Get("anthropic-version") == "" {
-		t.Error("anthropic-version header missing")
+	if req.Header.Get(HeaderVersion) == "" {
+		t.Errorf("%s header missing", HeaderVersion)
 	}
 }

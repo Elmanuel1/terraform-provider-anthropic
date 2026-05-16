@@ -20,8 +20,8 @@ func (a AdminAPIKey) Authenticate(_ context.Context, req *http.Request) error {
 	if a.Key == "" {
 		return fmt.Errorf("admin API key is empty")
 	}
-	req.Header.Set("x-api-key", a.Key)
-	req.Header.Set("anthropic-version", "2023-06-01")
-	req.Header.Set("anthropic-beta", "admin-api-2025-05-21")
+	req.Header.Set(HeaderAPIKey, a.Key)
+	req.Header.Set(HeaderVersion, APIVersion)
+	req.Header.Set(HeaderBeta, AdminBeta)
 	return nil
 }
