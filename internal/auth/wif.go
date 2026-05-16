@@ -126,6 +126,9 @@ func LogJWTClaims(ctx context.Context, cfg *WIFConfig) {
 }
 
 func MintToken(ctx context.Context, cfg *WIFConfig, workspaceID string) (*MintedToken, error) {
+	if cfg == nil {
+		return nil, fmt.Errorf("missing WIF config")
+	}
 	body, err := json.Marshal(map[string]string{
 		"grant_type":         "urn:ietf:params:oauth:grant-type:jwt-bearer",
 		"assertion":          cfg.jwt,

@@ -24,7 +24,7 @@ func ResolveWorkspaceID(ctx context.Context, apiKey, name string) (string, error
 	if err != nil {
 		return "", fmt.Errorf("listing workspaces: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	raw, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {

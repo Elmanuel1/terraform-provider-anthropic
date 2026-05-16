@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/Elmanuel1/terraform-provider-anthropic-wif/internal/auth"
 )
@@ -21,9 +22,23 @@ type Config struct {
 	WIF           *auth.WIFConfig
 	APIKey        string
 	WorkspaceName string
+	HTTPClient    *http.Client
+}
+
+func (c *Config) httpClient() *http.Client {
+	if c.HTTPClient != nil {
+		return c.HTTPClient
+	}
+	return &http.Client{Timeout: 30 * time.Second}
 }
 
 func DoRequest(ctx context.Context, cfg *Config, method, path string, body any) ([]byte, int, error) {
+	if cfg == nil {
+		return nil, 0, fmt.Errorf("missing client config")
+	}
+	if cfg.WIF == nil {
+		return nil, 0, fmt.Errorf("missing WIF config")
+	}
 	workspaceID, err := auth.ResolveWorkspaceID(ctx, cfg.APIKey, cfg.WorkspaceName)
 	if err != nil {
 		return nil, 0, fmt.Errorf("workspace resolution: %w", err)
@@ -52,11 +67,11 @@ func DoRequest(ctx context.Context, cfg *Config, method, path string, body any) 
 	req.Header.Set("anthropic-version", APIVersion)
 	req.Header.Set("anthropic-beta", BetaHeader)
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := cfg.httpClient().Do(req)
 	if err != nil {
 		return nil, 0, fmt.Errorf("API request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	raw, _ := io.ReadAll(resp.Body)
 	return raw, resp.StatusCode, nil
