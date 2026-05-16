@@ -98,6 +98,14 @@ func TestResolveWorkspaceID_APIError(t *testing.T) {
 	}
 }
 
+func TestWIFBearer_NilConfig(t *testing.T) {
+	req, _ := http.NewRequest(http.MethodGet, "http://example.com", nil)
+	err := WIFBearer{Config: nil}.Authenticate(context.Background(), req)
+	if err == nil {
+		t.Fatal("expected error for nil WIF config")
+	}
+}
+
 func TestAdminAPIKey_EmptyKey(t *testing.T) {
 	req, _ := http.NewRequest(http.MethodGet, "http://example.com", nil)
 	err := AdminAPIKey{Key: ""}.Authenticate(context.Background(), req)

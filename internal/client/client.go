@@ -34,18 +34,7 @@ func DoRequest(ctx context.Context, cfg *Config, workspaceID, method, path strin
 	if cfg.WIF == nil {
 		return nil, 0, fmt.Errorf("missing WIF config")
 	}
-
-	token, err := auth.MintToken(ctx, cfg.WIF, workspaceID)
-	if err != nil {
-		return nil, 0, fmt.Errorf("minting token: %w", err)
-	}
-
-	return doHTTP(ctx, cfg.httpClient(), method, auth.BaseURL+path, body,
-		func(req *http.Request) {
-			req.Header.Set(auth.HeaderAuth, "Bearer "+token.AccessToken)
-			req.Header.Set(auth.HeaderVersion, auth.APIVersion)
-			req.Header.Set(auth.HeaderBeta, auth.AgentsBeta)
-		})
+	return doWithCreds(ctx, cfg, auth.WIFBearer{Config: cfg.WIF, WorkspaceID: workspaceID}, method, path, body)
 }
 
 // DoAdminRequest calls the Anthropic Admin API using the provided credentials.
@@ -53,7 +42,10 @@ func DoAdminRequest(ctx context.Context, cfg *Config, creds auth.Credentials, me
 	if cfg == nil {
 		return nil, 0, fmt.Errorf("missing client config")
 	}
+	return doWithCreds(ctx, cfg, creds, method, path, body)
+}
 
+func doWithCreds(ctx context.Context, cfg *Config, creds auth.Credentials, method, path string, body any) ([]byte, int, error) {
 	req, err := buildRequest(ctx, method, auth.BaseURL+path, body)
 	if err != nil {
 		return nil, 0, err
@@ -64,24 +56,7 @@ func DoAdminRequest(ctx context.Context, cfg *Config, creds auth.Credentials, me
 
 	resp, err := cfg.httpClient().Do(req)
 	if err != nil {
-		return nil, 0, fmt.Errorf("admin API request failed: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	raw, _ := io.ReadAll(resp.Body)
-	return raw, resp.StatusCode, nil
-}
-
-func doHTTP(ctx context.Context, hc *http.Client, method, url string, body any, setHeaders func(*http.Request)) ([]byte, int, error) {
-	req, err := buildRequest(ctx, method, url, body)
-	if err != nil {
-		return nil, 0, err
-	}
-	setHeaders(req)
-
-	resp, err := hc.Do(req)
-	if err != nil {
-		return nil, 0, fmt.Errorf("API request failed: %w", err)
+		return nil, 0, fmt.Errorf("request failed: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
