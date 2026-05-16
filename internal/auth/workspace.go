@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-const anthropicWorkspacesURL = "https://api.anthropic.com/v1/organizations/workspaces"
+var anthropicWorkspacesURL = "https://api.anthropic.com/v1/organizations/workspaces"
 
 func ResolveWorkspaceID(ctx context.Context, apiKey, name string) (string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, anthropicWorkspacesURL, nil)

@@ -15,7 +15,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
-const anthropicTokenURL = "https://api.anthropic.com/v1/oauth/token"
+var anthropicTokenURL = "https://api.anthropic.com/v1/oauth/token"
 
 type WIFConfig struct {
 	FederationRuleID string
