@@ -23,6 +23,7 @@ type AgentResource struct {
 
 type AgentModel struct {
 	Id          types.String `tfsdk:"id"`
+	WorkspaceId types.String `tfsdk:"workspace_id"`
 	Name        types.String `tfsdk:"name"`
 	Model       types.String `tfsdk:"model"`
 	ModelSpeed  types.String `tfsdk:"model_speed"`
@@ -112,6 +113,11 @@ func (r *AgentResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 				Computed:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
+			"workspace_id": schema.StringAttribute{
+				Required:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Description:   "ID of the workspace this agent belongs to.",
+			},
 			"name": schema.StringAttribute{Required: true},
 			"model": schema.StringAttribute{
 				Required:    true,
@@ -163,7 +169,7 @@ func (r *AgentResource) Create(ctx context.Context, req resource.CreateRequest, 
 		return
 	}
 
-	raw, status, err := client.DoRequest(ctx, r.data.client, http.MethodPost, "/v1/agents", buildAgentBody(data))
+	raw, status, err := client.DoRequest(ctx, r.data.client, data.WorkspaceId.ValueString(), http.MethodPost, "/v1/agents", buildAgentBody(data))
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to create agent: %s", err))
 		return
@@ -189,7 +195,7 @@ func (r *AgentResource) Read(ctx context.Context, req resource.ReadRequest, resp
 		return
 	}
 
-	raw, status, err := client.DoRequest(ctx, r.data.client, http.MethodGet, "/v1/agents/"+data.Id.ValueString(), nil)
+	raw, status, err := client.DoRequest(ctx, r.data.client, data.WorkspaceId.ValueString(), http.MethodGet, "/v1/agents/"+data.Id.ValueString(), nil)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read agent: %s", err))
 		return
@@ -222,7 +228,7 @@ func (r *AgentResource) Update(ctx context.Context, req resource.UpdateRequest, 
 	body := buildAgentBody(data)
 	body["version"] = data.Version.ValueInt64()
 
-	raw, status, err := client.DoRequest(ctx, r.data.client, http.MethodPost, "/v1/agents/"+data.Id.ValueString(), body)
+	raw, status, err := client.DoRequest(ctx, r.data.client, data.WorkspaceId.ValueString(), http.MethodPost, "/v1/agents/"+data.Id.ValueString(), body)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to update agent: %s", err))
 		return
@@ -248,7 +254,7 @@ func (r *AgentResource) Delete(ctx context.Context, req resource.DeleteRequest, 
 		return
 	}
 
-	_, status, err := client.DoRequest(ctx, r.data.client, http.MethodPost, "/v1/agents/"+data.Id.ValueString()+"/archive", nil)
+	_, status, err := client.DoRequest(ctx, r.data.client, data.WorkspaceId.ValueString(), http.MethodPost, "/v1/agents/"+data.Id.ValueString()+"/archive", nil)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to archive agent: %s", err))
 		return

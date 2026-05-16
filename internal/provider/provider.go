@@ -11,7 +11,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
-	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
 func New() provider.Provider {
@@ -24,33 +23,17 @@ type providerData struct {
 	client *client.Config
 }
 
-type providerModel struct {
-	WorkspaceName types.String `tfsdk:"workspace_name"`
-}
-
 func (p *wifProvider) Metadata(_ context.Context, _ provider.MetadataRequest, resp *provider.MetadataResponse) {
 	resp.TypeName = "anthropic-wif"
 }
 
 func (p *wifProvider) Schema(_ context.Context, _ provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Anthropic provider with WIF token minting via TFC OIDC. All WIF config via environment variables.",
-		Attributes: map[string]schema.Attribute{
-			"workspace_name": schema.StringAttribute{
-				Optional:    true,
-				Description: "Anthropic workspace name for resource operations. Defaults to the organization default workspace.",
-			},
-		},
+		Description: "Anthropic provider with WIF token minting via TFC OIDC. All config via environment variables.",
 	}
 }
 
 func (p *wifProvider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
-	var model providerModel
-	resp.Diagnostics.Append(req.Config.Get(ctx, &model)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
 	wifCfg, err := auth.ReadWIFConfig()
 	if err != nil {
 		resp.Diagnostics.AddError("WIF configuration error", err.Error())
@@ -66,22 +49,21 @@ func (p *wifProvider) Configure(ctx context.Context, req provider.ConfigureReque
 
 	apiKey := os.Getenv("ANTHROPIC_ADMIN_API_KEY")
 	if apiKey == "" {
-		resp.Diagnostics.AddError("Missing ANTHROPIC_ADMIN_API_KEY", "Required for workspace name resolution via Admin API.")
+		resp.Diagnostics.AddError("Missing ANTHROPIC_ADMIN_API_KEY", "Required for workspace and Admin API operations.")
 		return
 	}
 
 	data := &providerData{
 		client: &client.Config{
-			WIF:           wifCfg,
-			APIKey:        apiKey,
-			WorkspaceName: model.WorkspaceName.ValueString(),
+			WIF:    wifCfg,
+			APIKey: apiKey,
 		},
 	}
 	resp.DataSourceData = data
 	resp.ResourceData = data
 
-	fmt.Printf("[anthropic-wif] provider configured — federation_rule_id=%s service_account_id=%s workspace=%q\n",
-		wifCfg.FederationRuleID, wifCfg.ServiceAccountID, model.WorkspaceName.ValueString())
+	fmt.Printf("[anthropic-wif] provider configured — federation_rule_id=%s service_account_id=%s\n",
+		wifCfg.FederationRuleID, wifCfg.ServiceAccountID)
 }
 
 func (p *wifProvider) DataSources(_ context.Context) []func() datasource.DataSource {
@@ -92,6 +74,7 @@ func (p *wifProvider) DataSources(_ context.Context) []func() datasource.DataSou
 
 func (p *wifProvider) Resources(_ context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
+		NewWorkspaceResource,
 		NewAgentResource,
 		NewEnvironmentResource,
 	}

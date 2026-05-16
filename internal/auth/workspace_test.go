@@ -28,7 +28,7 @@ func TestResolveWorkspaceID_Found(t *testing.T) {
 	anthropicWorkspacesURL = srv.URL
 	defer func() { anthropicWorkspacesURL = orig }()
 
-	id, err := ResolveWorkspaceID(context.Background(), "key-123", "tosspaper")
+	id, err := ResolveWorkspaceID(context.Background(), AdminAPIKey{Key: "key-123"}, "tosspaper")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -52,7 +52,7 @@ func TestResolveWorkspaceID_NotFound(t *testing.T) {
 	anthropicWorkspacesURL = srv.URL
 	defer func() { anthropicWorkspacesURL = orig }()
 
-	_, err := ResolveWorkspaceID(context.Background(), "key-123", "tosspaper")
+	_, err := ResolveWorkspaceID(context.Background(), AdminAPIKey{Key: "key-123"}, "tosspaper")
 	if err == nil {
 		t.Fatal("expected error when workspace not found")
 	}
@@ -73,7 +73,7 @@ func TestResolveWorkspaceID_DefaultWorkspace(t *testing.T) {
 	anthropicWorkspacesURL = srv.URL
 	defer func() { anthropicWorkspacesURL = orig }()
 
-	id, err := ResolveWorkspaceID(context.Background(), "key-123", "")
+	id, err := ResolveWorkspaceID(context.Background(), AdminAPIKey{Key: "key-123"}, "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -92,8 +92,29 @@ func TestResolveWorkspaceID_APIError(t *testing.T) {
 	anthropicWorkspacesURL = srv.URL
 	defer func() { anthropicWorkspacesURL = orig }()
 
-	_, err := ResolveWorkspaceID(context.Background(), "bad-key", "tosspaper")
+	_, err := ResolveWorkspaceID(context.Background(), AdminAPIKey{Key: "bad-key"}, "tosspaper")
 	if err == nil {
 		t.Fatal("expected error for non-200 response")
+	}
+}
+
+func TestAdminAPIKey_EmptyKey(t *testing.T) {
+	req, _ := http.NewRequest(http.MethodGet, "http://example.com", nil)
+	err := AdminAPIKey{Key: ""}.Authenticate(context.Background(), req)
+	if err == nil {
+		t.Fatal("expected error for empty key")
+	}
+}
+
+func TestAdminAPIKey_SetsHeaders(t *testing.T) {
+	req, _ := http.NewRequest(http.MethodGet, "http://example.com", nil)
+	if err := (AdminAPIKey{Key: "test-key"}).Authenticate(context.Background(), req); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if req.Header.Get("x-api-key") != "test-key" {
+		t.Errorf("x-api-key not set correctly")
+	}
+	if req.Header.Get("anthropic-version") == "" {
+		t.Error("anthropic-version header missing")
 	}
 }

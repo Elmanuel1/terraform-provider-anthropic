@@ -11,14 +11,14 @@ import (
 
 var anthropicWorkspacesURL = "https://api.anthropic.com/v1/organizations/workspaces"
 
-func ResolveWorkspaceID(ctx context.Context, apiKey, name string) (string, error) {
+func ResolveWorkspaceID(ctx context.Context, creds Credentials, name string) (string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, anthropicWorkspacesURL, nil)
 	if err != nil {
 		return "", fmt.Errorf("building workspaces request: %w", err)
 	}
-	req.Header.Set("x-api-key", apiKey)
-	req.Header.Set("anthropic-version", "2023-06-01")
-	req.Header.Set("anthropic-beta", "admin-api-2025-05-21")
+	if err := creds.Authenticate(ctx, req); err != nil {
+		return "", fmt.Errorf("authenticating workspaces request: %w", err)
+	}
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {

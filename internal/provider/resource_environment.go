@@ -27,6 +27,7 @@ type EnvironmentResource struct {
 
 type EnvironmentModel struct {
 	Id                   types.String `tfsdk:"id"`
+	WorkspaceId          types.String `tfsdk:"workspace_id"`
 	Name                 types.String `tfsdk:"name"`
 	NetworkingType       types.String `tfsdk:"networking_type"`
 	AllowedHosts         types.List   `tfsdk:"allowed_hosts"`
@@ -128,6 +129,11 @@ func (r *EnvironmentResource) Schema(_ context.Context, _ resource.SchemaRequest
 				Computed:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
+			"workspace_id": schema.StringAttribute{
+				Required:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Description:   "ID of the workspace this environment belongs to.",
+			},
 			"name": schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
@@ -224,7 +230,7 @@ func (r *EnvironmentResource) Create(ctx context.Context, req resource.CreateReq
 		"config": r.buildConfig(ctx, data),
 	}
 
-	raw, status, err := client.DoRequest(ctx, r.data.client, http.MethodPost, "/v1/environments", body)
+	raw, status, err := client.DoRequest(ctx, r.data.client, data.WorkspaceId.ValueString(), http.MethodPost, "/v1/environments", body)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to create environment: %s", err))
 		return
@@ -250,7 +256,7 @@ func (r *EnvironmentResource) Read(ctx context.Context, req resource.ReadRequest
 		return
 	}
 
-	raw, status, err := client.DoRequest(ctx, r.data.client, http.MethodGet, "/v1/environments/"+data.Id.ValueString(), nil)
+	raw, status, err := client.DoRequest(ctx, r.data.client, data.WorkspaceId.ValueString(), http.MethodGet, "/v1/environments/"+data.Id.ValueString(), nil)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read environment: %s", err))
 		return
@@ -284,7 +290,7 @@ func (r *EnvironmentResource) Delete(ctx context.Context, req resource.DeleteReq
 		return
 	}
 
-	_, status, err := client.DoRequest(ctx, r.data.client, http.MethodDelete, "/v1/environments/"+data.Id.ValueString(), nil)
+	_, status, err := client.DoRequest(ctx, r.data.client, data.WorkspaceId.ValueString(), http.MethodDelete, "/v1/environments/"+data.Id.ValueString(), nil)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete environment: %s", err))
 		return

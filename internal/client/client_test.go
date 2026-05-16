@@ -10,7 +10,7 @@ import (
 )
 
 func TestDoRequest_NilConfig(t *testing.T) {
-	_, _, err := DoRequest(context.Background(), nil, http.MethodGet, "/v1/agents", nil)
+	_, _, err := DoRequest(context.Background(), nil, "wrkspc_1", http.MethodGet, "/v1/agents", nil)
 	if err == nil {
 		t.Fatal("expected error for nil config")
 	}
@@ -18,21 +18,24 @@ func TestDoRequest_NilConfig(t *testing.T) {
 
 func TestDoRequest_NilWIF(t *testing.T) {
 	cfg := &Config{APIKey: "key"}
-	_, _, err := DoRequest(context.Background(), cfg, http.MethodGet, "/v1/agents", nil)
+	_, _, err := DoRequest(context.Background(), cfg, "wrkspc_1", http.MethodGet, "/v1/agents", nil)
 	if err == nil {
 		t.Fatal("expected error for nil WIF")
 	}
 }
 
-func TestDoRequest_PropagatesWorkspaceError(t *testing.T) {
-	// WIF is set but APIKey is empty — workspace resolution will fail
-	cfg := &Config{
-		WIF:    &auth.WIFConfig{},
-		APIKey: "",
-	}
-	_, _, err := DoRequest(context.Background(), cfg, http.MethodGet, "/v1/agents", nil)
+func TestDoAdminRequest_NilConfig(t *testing.T) {
+	_, _, err := DoAdminRequest(context.Background(), nil, auth.AdminAPIKey{Key: "k"}, http.MethodGet, "/v1/organizations/workspaces", nil)
 	if err == nil {
-		t.Fatal("expected error when workspace resolution fails")
+		t.Fatal("expected error for nil config")
+	}
+}
+
+func TestDoAdminRequest_EmptyKey(t *testing.T) {
+	cfg := &Config{}
+	_, _, err := DoAdminRequest(context.Background(), cfg, auth.AdminAPIKey{Key: ""}, http.MethodGet, "/v1/organizations/workspaces", nil)
+	if err == nil {
+		t.Fatal("expected error for empty admin API key")
 	}
 }
 
