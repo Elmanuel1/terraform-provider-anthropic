@@ -72,21 +72,21 @@ func (d *tokenDataSource) Read(ctx context.Context, req datasource.ReadRequest, 
 
 	workspaceName := model.WorkspaceName.ValueString()
 
-	wc := client.NewWorkspaceClient(d.data.client)
+	wc := client.NewWorkspaceClient(d.data.apiKey, d.data.httpClient)
 	workspaceID, err := wc.ResolveByName(ctx, workspaceName)
 	if err != nil {
 		resp.Diagnostics.AddError("Workspace resolution failed", err.Error())
 		return
 	}
 
-	auth.LogJWTClaims(ctx, d.data.client.WIF)
+	auth.LogJWTClaims(ctx, d.data.wif)
 
 	tflog.Info(ctx, "minting WIF token", map[string]any{
 		"workspace_name": workspaceName,
 		"workspace_id":   workspaceID,
 	})
 
-	token, err := auth.MintToken(ctx, d.data.client.WIF, workspaceID)
+	token, err := auth.MintToken(ctx, d.data.wif, workspaceID)
 	if err != nil {
 		resp.Diagnostics.AddError("Token minting failed", err.Error())
 		return

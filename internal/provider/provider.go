@@ -3,10 +3,10 @@ package provider
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 
 	"github.com/Elmanuel1/terraform-provider-anthropic-wif/internal/auth"
-	"github.com/Elmanuel1/terraform-provider-anthropic-wif/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
@@ -20,7 +20,9 @@ func New() provider.Provider {
 type wifProvider struct{}
 
 type providerData struct {
-	client *client.Config
+	apiKey     string
+	wif        *auth.WIFConfig
+	httpClient *http.Client // nil = use package default
 }
 
 func (p *wifProvider) Metadata(_ context.Context, _ provider.MetadataRequest, resp *provider.MetadataResponse) {
@@ -51,10 +53,8 @@ func (p *wifProvider) Configure(ctx context.Context, req provider.ConfigureReque
 	}
 
 	data := &providerData{
-		client: &client.Config{
-			WIF:    wifCfg,
-			APIKey: apiKey,
-		},
+		apiKey: apiKey,
+		wif:    wifCfg,
 	}
 	resp.DataSourceData = data
 	resp.ResourceData = data

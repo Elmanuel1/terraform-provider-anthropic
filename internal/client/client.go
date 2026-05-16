@@ -12,20 +12,16 @@ import (
 	"github.com/Elmanuel1/terraform-provider-anthropic-wif/internal/auth"
 )
 
-type Config struct {
-	WIF        *auth.WIFConfig
-	APIKey     string // admin API key, used by workspace resource and token datasource
-	HTTPClient *http.Client
-}
+var defaultHTTPClient = &http.Client{Timeout: 30 * time.Second}
 
-func (c *Config) httpClient() *http.Client {
-	if c.HTTPClient != nil {
-		return c.HTTPClient
+func resolveHTTPClient(c *http.Client) *http.Client {
+	if c != nil {
+		return c
 	}
-	return &http.Client{Timeout: 30 * time.Second}
+	return defaultHTTPClient
 }
 
-func doWithCreds(ctx context.Context, cfg *Config, creds auth.Credentials, method, path string, body any) ([]byte, int, error) {
+func doWithCreds(ctx context.Context, httpClient *http.Client, creds auth.Credentials, method, path string, body any) ([]byte, int, error) {
 	req, err := buildRequest(ctx, method, auth.BaseURL+path, body)
 	if err != nil {
 		return nil, 0, err
@@ -34,7 +30,7 @@ func doWithCreds(ctx context.Context, cfg *Config, creds auth.Credentials, metho
 		return nil, 0, fmt.Errorf("authenticating request: %w", err)
 	}
 
-	resp, err := cfg.httpClient().Do(req)
+	resp, err := resolveHTTPClient(httpClient).Do(req)
 	if err != nil {
 		return nil, 0, fmt.Errorf("request failed: %w", err)
 	}

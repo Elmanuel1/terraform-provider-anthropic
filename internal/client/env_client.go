@@ -28,20 +28,21 @@ type EnvironmentResponse struct {
 }
 
 type EnvironmentClient struct {
-	cfg         *Config
+	wif         *auth.WIFConfig
 	workspaceID string
+	httpClient  *http.Client
 }
 
-func NewEnvironmentClient(cfg *Config, workspaceID string) *EnvironmentClient {
-	return &EnvironmentClient{cfg: cfg, workspaceID: workspaceID}
+func NewEnvironmentClient(wif *auth.WIFConfig, workspaceID string, httpClient *http.Client) *EnvironmentClient {
+	return &EnvironmentClient{wif: wif, workspaceID: workspaceID, httpClient: httpClient}
 }
 
 func (c *EnvironmentClient) creds() auth.Credentials {
-	return auth.WIFBearer{Config: c.cfg.WIF, WorkspaceID: c.workspaceID}
+	return auth.WIFBearer{Config: c.wif, WorkspaceID: c.workspaceID}
 }
 
 func (c *EnvironmentClient) Create(ctx context.Context, body map[string]any) (*EnvironmentResponse, error) {
-	raw, status, err := doWithCreds(ctx, c.cfg, c.creds(), http.MethodPost, "/v1/environments", body)
+	raw, status, err := doWithCreds(ctx, c.httpClient, c.creds(), http.MethodPost, "/v1/environments", body)
 	if err != nil {
 		return nil, fmt.Errorf("creating environment: %w", err)
 	}
@@ -57,7 +58,7 @@ func (c *EnvironmentClient) Create(ctx context.Context, body map[string]any) (*E
 }
 
 func (c *EnvironmentClient) Read(ctx context.Context, id string) (*EnvironmentResponse, error) {
-	raw, status, err := doWithCreds(ctx, c.cfg, c.creds(), http.MethodGet, "/v1/environments/"+id, nil)
+	raw, status, err := doWithCreds(ctx, c.httpClient, c.creds(), http.MethodGet, "/v1/environments/"+id, nil)
 	if err != nil {
 		return nil, fmt.Errorf("reading environment: %w", err)
 	}
@@ -76,7 +77,7 @@ func (c *EnvironmentClient) Read(ctx context.Context, id string) (*EnvironmentRe
 }
 
 func (c *EnvironmentClient) Delete(ctx context.Context, id string) error {
-	_, status, err := doWithCreds(ctx, c.cfg, c.creds(), http.MethodDelete, "/v1/environments/"+id, nil)
+	_, status, err := doWithCreds(ctx, c.httpClient, c.creds(), http.MethodDelete, "/v1/environments/"+id, nil)
 	if err != nil {
 		return fmt.Errorf("deleting environment: %w", err)
 	}
