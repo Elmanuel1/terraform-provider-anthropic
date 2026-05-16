@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/build4africa/terraform-provider-anthropic-wif/internal/auth"
+	"github.com/build4africa/terraform-provider-anthropic-wif/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
@@ -16,14 +18,10 @@ func New() provider.Provider {
 	return &wifProvider{}
 }
 
-type wifProvider struct {
-	cfg *wifConfig
-}
+type wifProvider struct{}
 
 type providerData struct {
-	cfg           *wifConfig
-	apiKey        string
-	workspaceName string
+	client *client.Config
 }
 
 type providerModel struct {
@@ -53,12 +51,12 @@ func (p *wifProvider) Configure(ctx context.Context, req provider.ConfigureReque
 		return
 	}
 
-	cfg, err := readWIFConfig()
+	wifCfg, err := auth.ReadWIFConfig()
 	if err != nil {
 		resp.Diagnostics.AddError("WIF configuration error", err.Error())
 		return
 	}
-	if cfg == nil {
+	if wifCfg == nil {
 		resp.Diagnostics.AddError(
 			"WIF not configured",
 			"Set ANTHROPIC_FEDERATION_RULE_ID, ANTHROPIC_ORGANIZATION_ID, ANTHROPIC_SERVICE_ACCOUNT_ID, and TFC_WORKLOAD_IDENTITY_TOKEN_ANTHROPIC.",
@@ -72,14 +70,18 @@ func (p *wifProvider) Configure(ctx context.Context, req provider.ConfigureReque
 		return
 	}
 
-	workspaceName := model.WorkspaceName.ValueString()
-
-	data := &providerData{cfg: cfg, apiKey: apiKey, workspaceName: workspaceName}
+	data := &providerData{
+		client: &client.Config{
+			WIF:           wifCfg,
+			APIKey:        apiKey,
+			WorkspaceName: model.WorkspaceName.ValueString(),
+		},
+	}
 	resp.DataSourceData = data
 	resp.ResourceData = data
 
 	fmt.Printf("[anthropic-wif] provider configured — federation_rule_id=%s service_account_id=%s workspace=%q\n",
-		cfg.FederationRuleID, cfg.ServiceAccountID, workspaceName)
+		wifCfg.FederationRuleID, wifCfg.ServiceAccountID, model.WorkspaceName.ValueString())
 }
 
 func (p *wifProvider) DataSources(_ context.Context) []func() datasource.DataSource {

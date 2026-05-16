@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/build4africa/terraform-provider-anthropic-wif/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -223,7 +224,7 @@ func (r *EnvironmentResource) Create(ctx context.Context, req resource.CreateReq
 		"config": r.buildConfig(ctx, data),
 	}
 
-	raw, status, err := doRequest(ctx, r.data, http.MethodPost, "/v1/environments", body)
+	raw, status, err := client.DoRequest(ctx, r.data.client, http.MethodPost, "/v1/environments", body)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to create environment: %s", err))
 		return
@@ -249,7 +250,7 @@ func (r *EnvironmentResource) Read(ctx context.Context, req resource.ReadRequest
 		return
 	}
 
-	raw, status, err := doRequest(ctx, r.data, http.MethodGet, "/v1/environments/"+data.Id.ValueString(), nil)
+	raw, status, err := client.DoRequest(ctx, r.data.client, http.MethodGet, "/v1/environments/"+data.Id.ValueString(), nil)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read environment: %s", err))
 		return
@@ -283,7 +284,7 @@ func (r *EnvironmentResource) Delete(ctx context.Context, req resource.DeleteReq
 		return
 	}
 
-	_, status, err := doRequest(ctx, r.data, http.MethodDelete, "/v1/environments/"+data.Id.ValueString(), nil)
+	_, status, err := client.DoRequest(ctx, r.data.client, http.MethodDelete, "/v1/environments/"+data.Id.ValueString(), nil)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete environment: %s", err))
 		return

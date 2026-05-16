@@ -1,4 +1,4 @@
-package provider
+package client
 
 import (
 	"bytes"
@@ -7,21 +7,29 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+
+	"github.com/build4africa/terraform-provider-anthropic-wif/internal/auth"
 )
 
 const (
-	anthropicBaseURL    = "https://api.anthropic.com"
-	managedAgentsBeta   = "managed-agents-2026-04-01"
-	anthropicAPIVersion = "2023-06-01"
+	BaseURL    = "https://api.anthropic.com"
+	BetaHeader = "managed-agents-2026-04-01"
+	APIVersion = "2023-06-01"
 )
 
-func doRequest(ctx context.Context, data *providerData, method, path string, body any) ([]byte, int, error) {
-	workspaceID, err := resolveWorkspaceID(ctx, data.apiKey, data.workspaceName)
+type Config struct {
+	WIF           *auth.WIFConfig
+	APIKey        string
+	WorkspaceName string
+}
+
+func DoRequest(ctx context.Context, cfg *Config, method, path string, body any) ([]byte, int, error) {
+	workspaceID, err := auth.ResolveWorkspaceID(ctx, cfg.APIKey, cfg.WorkspaceName)
 	if err != nil {
 		return nil, 0, fmt.Errorf("workspace resolution: %w", err)
 	}
 
-	token, err := mintToken(ctx, data.cfg, workspaceID)
+	token, err := auth.MintToken(ctx, cfg.WIF, workspaceID)
 	if err != nil {
 		return nil, 0, fmt.Errorf("minting token: %w", err)
 	}
@@ -35,14 +43,14 @@ func doRequest(ctx context.Context, data *providerData, method, path string, bod
 		bodyReader = bytes.NewReader(b)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, method, anthropicBaseURL+path, bodyReader)
+	req, err := http.NewRequestWithContext(ctx, method, BaseURL+path, bodyReader)
 	if err != nil {
 		return nil, 0, fmt.Errorf("building request: %w", err)
 	}
 	req.Header.Set("Authorization", "Bearer "+token.AccessToken)
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("anthropic-version", anthropicAPIVersion)
-	req.Header.Set("anthropic-beta", managedAgentsBeta)
+	req.Header.Set("anthropic-version", APIVersion)
+	req.Header.Set("anthropic-beta", BetaHeader)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/build4africa/terraform-provider-anthropic-wif/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -162,7 +163,7 @@ func (r *AgentResource) Create(ctx context.Context, req resource.CreateRequest, 
 		return
 	}
 
-	raw, status, err := doRequest(ctx, r.data, http.MethodPost, "/v1/agents", buildAgentBody(data))
+	raw, status, err := client.DoRequest(ctx, r.data.client, http.MethodPost, "/v1/agents", buildAgentBody(data))
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to create agent: %s", err))
 		return
@@ -188,7 +189,7 @@ func (r *AgentResource) Read(ctx context.Context, req resource.ReadRequest, resp
 		return
 	}
 
-	raw, status, err := doRequest(ctx, r.data, http.MethodGet, "/v1/agents/"+data.Id.ValueString(), nil)
+	raw, status, err := client.DoRequest(ctx, r.data.client, http.MethodGet, "/v1/agents/"+data.Id.ValueString(), nil)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read agent: %s", err))
 		return
@@ -221,7 +222,7 @@ func (r *AgentResource) Update(ctx context.Context, req resource.UpdateRequest, 
 	body := buildAgentBody(data)
 	body["version"] = data.Version.ValueInt64()
 
-	raw, status, err := doRequest(ctx, r.data, http.MethodPost, "/v1/agents/"+data.Id.ValueString(), body)
+	raw, status, err := client.DoRequest(ctx, r.data.client, http.MethodPost, "/v1/agents/"+data.Id.ValueString(), body)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to update agent: %s", err))
 		return
@@ -247,7 +248,7 @@ func (r *AgentResource) Delete(ctx context.Context, req resource.DeleteRequest, 
 		return
 	}
 
-	_, status, err := doRequest(ctx, r.data, http.MethodPost, "/v1/agents/"+data.Id.ValueString()+"/archive", nil)
+	_, status, err := client.DoRequest(ctx, r.data.client, http.MethodPost, "/v1/agents/"+data.Id.ValueString()+"/archive", nil)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to archive agent: %s", err))
 		return
