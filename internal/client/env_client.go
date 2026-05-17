@@ -11,9 +11,10 @@ import (
 )
 
 type EnvironmentResponse struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-	Config *struct {
+	ID          string  `json:"id"`
+	Name        string  `json:"name"`
+	Description *string `json:"description"`
+	Config      *struct {
 		Packages   map[string][]string `json:"packages"`
 		Networking *struct {
 			Type                 string   `json:"type"`
@@ -70,6 +71,33 @@ func (c *EnvironmentClient) Read(ctx context.Context, id string) (*EnvironmentRe
 		return nil, fmt.Errorf("parsing environment response: %w", err)
 	}
 	return &e, nil
+}
+
+func (c *EnvironmentClient) Update(ctx context.Context, id string, body map[string]any) (*EnvironmentResponse, error) {
+	raw, status, err := doWithCreds(ctx, c.httpClient, c.creds, http.MethodPost, "/v1/environments/"+url.PathEscape(id), body)
+	if err != nil {
+		return nil, fmt.Errorf("updating environment: %w", err)
+	}
+	if status != http.StatusOK {
+		return nil, fmt.Errorf("updating environment returned HTTP %d: %s", status, raw)
+	}
+
+	var e EnvironmentResponse
+	if err := json.Unmarshal(raw, &e); err != nil {
+		return nil, fmt.Errorf("parsing environment response: %w", err)
+	}
+	return &e, nil
+}
+
+func (c *EnvironmentClient) Archive(ctx context.Context, id string) error {
+	_, status, err := doWithCreds(ctx, c.httpClient, c.creds, http.MethodPost, "/v1/environments/"+url.PathEscape(id)+"/archive", nil)
+	if err != nil {
+		return fmt.Errorf("archiving environment: %w", err)
+	}
+	if status != http.StatusOK && status != http.StatusNotFound {
+		return fmt.Errorf("archiving environment returned HTTP %d", status)
+	}
+	return nil
 }
 
 func (c *EnvironmentClient) Delete(ctx context.Context, id string) error {

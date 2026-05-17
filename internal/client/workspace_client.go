@@ -118,13 +118,28 @@ func (c *WorkspaceClient) Read(ctx context.Context, id string) (*WorkspaceRespon
 	return &w, nil
 }
 
-func (c *WorkspaceClient) Delete(ctx context.Context, id string) error {
-	_, status, err := doWithCreds(ctx, c.httpClient, c.creds, http.MethodDelete, workspacesPath+"/"+url.PathEscape(id), nil)
+func (c *WorkspaceClient) Update(ctx context.Context, id string, body map[string]any) (*WorkspaceResponse, error) {
+	raw, status, err := doWithCreds(ctx, c.httpClient, c.creds, http.MethodPost, workspacesPath+"/"+url.PathEscape(id), body)
 	if err != nil {
-		return fmt.Errorf("deleting workspace: %w", err)
+		return nil, fmt.Errorf("updating workspace: %w", err)
 	}
-	if status != http.StatusOK && status != http.StatusNoContent && status != http.StatusNotFound {
-		return fmt.Errorf("deleting workspace returned HTTP %d", status)
+	if status != http.StatusOK {
+		return nil, fmt.Errorf("updating workspace returned HTTP %d: %s", status, raw)
+	}
+	var w WorkspaceResponse
+	if err := json.Unmarshal(raw, &w); err != nil {
+		return nil, fmt.Errorf("parsing workspace response: %w", err)
+	}
+	return &w, nil
+}
+
+func (c *WorkspaceClient) Archive(ctx context.Context, id string) error {
+	_, status, err := doWithCreds(ctx, c.httpClient, c.creds, http.MethodPost, workspacesPath+"/"+url.PathEscape(id)+"/archive", nil)
+	if err != nil {
+		return fmt.Errorf("archiving workspace: %w", err)
+	}
+	if status != http.StatusOK && status != http.StatusNotFound {
+		return fmt.Errorf("archiving workspace returned HTTP %d", status)
 	}
 	return nil
 }
