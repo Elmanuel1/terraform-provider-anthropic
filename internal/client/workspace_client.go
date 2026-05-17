@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 
@@ -96,7 +97,7 @@ func (c *WorkspaceClient) Create(ctx context.Context, name string) (*WorkspaceRe
 }
 
 func (c *WorkspaceClient) Read(ctx context.Context, id string) (*WorkspaceResponse, error) {
-	raw, status, err := doWithCreds(ctx, c.httpClient, c.creds, http.MethodGet, workspacesPath+"/"+id, nil)
+	raw, status, err := doWithCreds(ctx, c.httpClient, c.creds, http.MethodGet, workspacesPath+"/"+url.PathEscape(id), nil)
 	if err != nil {
 		return nil, fmt.Errorf("reading workspace: %w", err)
 	}
@@ -115,7 +116,7 @@ func (c *WorkspaceClient) Read(ctx context.Context, id string) (*WorkspaceRespon
 }
 
 func (c *WorkspaceClient) Delete(ctx context.Context, id string) error {
-	_, status, err := doWithCreds(ctx, c.httpClient, c.creds, http.MethodDelete, workspacesPath+"/"+id, nil)
+	_, status, err := doWithCreds(ctx, c.httpClient, c.creds, http.MethodDelete, workspacesPath+"/"+url.PathEscape(id), nil)
 	if err != nil {
 		return fmt.Errorf("deleting workspace: %w", err)
 	}

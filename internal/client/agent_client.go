@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 
 	"github.com/Elmanuel1/terraform-provider-anthropic-wif/internal/auth"
 )
@@ -52,7 +53,7 @@ func (c *AgentClient) Create(ctx context.Context, body map[string]any) (*AgentRe
 }
 
 func (c *AgentClient) Read(ctx context.Context, id string) (*AgentResponse, error) {
-	raw, status, err := doWithCreds(ctx, c.httpClient, c.creds, http.MethodGet, "/v1/agents/"+id, nil)
+	raw, status, err := doWithCreds(ctx, c.httpClient, c.creds, http.MethodGet, "/v1/agents/"+url.PathEscape(id), nil)
 	if err != nil {
 		return nil, fmt.Errorf("reading agent: %w", err)
 	}
@@ -71,7 +72,7 @@ func (c *AgentClient) Read(ctx context.Context, id string) (*AgentResponse, erro
 }
 
 func (c *AgentClient) Update(ctx context.Context, id string, body map[string]any) (*AgentResponse, error) {
-	raw, status, err := doWithCreds(ctx, c.httpClient, c.creds, http.MethodPost, "/v1/agents/"+id, body)
+	raw, status, err := doWithCreds(ctx, c.httpClient, c.creds, http.MethodPost, "/v1/agents/"+url.PathEscape(id), body)
 	if err != nil {
 		return nil, fmt.Errorf("updating agent: %w", err)
 	}
@@ -88,7 +89,7 @@ func (c *AgentClient) Update(ctx context.Context, id string, body map[string]any
 
 // Delete archives the agent via POST /v1/agents/{id}/archive.
 func (c *AgentClient) Delete(ctx context.Context, id string) error {
-	_, status, err := doWithCreds(ctx, c.httpClient, c.creds, http.MethodPost, "/v1/agents/"+id+"/archive", nil)
+	_, status, err := doWithCreds(ctx, c.httpClient, c.creds, http.MethodPost, "/v1/agents/"+url.PathEscape(id)+"/archive", nil)
 	if err != nil {
 		return fmt.Errorf("archiving agent: %w", err)
 	}

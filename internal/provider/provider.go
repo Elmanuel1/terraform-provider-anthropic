@@ -2,7 +2,6 @@ package provider
 
 import (
 	"context"
-	"fmt"
 	"os"
 
 	"github.com/Elmanuel1/terraform-provider-anthropic-wif/internal/auth"
@@ -10,6 +9,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
 func New() provider.Provider {
@@ -58,10 +58,12 @@ func (p *wifProvider) Configure(ctx context.Context, req provider.ConfigureReque
 	resp.ResourceData = data
 
 	if wifCfg != nil {
-		fmt.Printf("[anthropic-wif] provider configured — federation_rule_id=%s service_account_id=%s\n",
-			wifCfg.FederationRuleID, wifCfg.ServiceAccountID)
+		tflog.Info(ctx, "provider configured", map[string]any{
+			"federation_rule_id":  wifCfg.FederationRuleID,
+			"service_account_id": wifCfg.ServiceAccountID,
+		})
 	} else {
-		fmt.Printf("[anthropic-wif] provider configured — workspace-only mode (no WIF)\n")
+		tflog.Info(ctx, "provider configured — workspace-only mode (no WIF)")
 	}
 }
 

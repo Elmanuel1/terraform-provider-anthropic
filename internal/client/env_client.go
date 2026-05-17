@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 
 	"github.com/Elmanuel1/terraform-provider-anthropic-wif/internal/auth"
 )
@@ -53,7 +54,7 @@ func (c *EnvironmentClient) Create(ctx context.Context, body map[string]any) (*E
 }
 
 func (c *EnvironmentClient) Read(ctx context.Context, id string) (*EnvironmentResponse, error) {
-	raw, status, err := doWithCreds(ctx, c.httpClient, c.creds, http.MethodGet, "/v1/environments/"+id, nil)
+	raw, status, err := doWithCreds(ctx, c.httpClient, c.creds, http.MethodGet, "/v1/environments/"+url.PathEscape(id), nil)
 	if err != nil {
 		return nil, fmt.Errorf("reading environment: %w", err)
 	}
@@ -72,7 +73,7 @@ func (c *EnvironmentClient) Read(ctx context.Context, id string) (*EnvironmentRe
 }
 
 func (c *EnvironmentClient) Delete(ctx context.Context, id string) error {
-	_, status, err := doWithCreds(ctx, c.httpClient, c.creds, http.MethodDelete, "/v1/environments/"+id, nil)
+	_, status, err := doWithCreds(ctx, c.httpClient, c.creds, http.MethodDelete, "/v1/environments/"+url.PathEscape(id), nil)
 	if err != nil {
 		return fmt.Errorf("deleting environment: %w", err)
 	}

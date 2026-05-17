@@ -15,6 +15,9 @@ import (
 var defaultHTTPClient = &http.Client{Timeout: 30 * time.Second}
 
 func doWithCreds(ctx context.Context, httpClient *http.Client, creds auth.Credentials, method, path string, body any) ([]byte, int, error) {
+	if creds == nil {
+		return nil, 0, fmt.Errorf("credentials are nil")
+	}
 	req, err := buildRequest(ctx, method, auth.BaseURL+path, body)
 	if err != nil {
 		return nil, 0, err
@@ -29,7 +32,10 @@ func doWithCreds(ctx context.Context, httpClient *http.Client, creds auth.Creden
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	raw, _ := io.ReadAll(resp.Body)
+	raw, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, resp.StatusCode, fmt.Errorf("reading response body: %w", err)
+	}
 	return raw, resp.StatusCode, nil
 }
 

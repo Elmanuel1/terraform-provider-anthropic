@@ -78,6 +78,10 @@ func (r *WorkspaceResource) Configure(_ context.Context, req resource.ConfigureR
 }
 
 func (r *WorkspaceResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	if r.data == nil {
+		resp.Diagnostics.AddError("Provider not configured", "Provider data is missing.")
+		return
+	}
 	var data WorkspaceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
@@ -95,6 +99,10 @@ func (r *WorkspaceResource) Create(ctx context.Context, req resource.CreateReque
 }
 
 func (r *WorkspaceResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	if r.data == nil {
+		resp.Diagnostics.AddError("Provider not configured", "Provider data is missing.")
+		return
+	}
 	var data WorkspaceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
@@ -120,6 +128,10 @@ func (r *WorkspaceResource) Update(_ context.Context, _ resource.UpdateRequest, 
 }
 
 func (r *WorkspaceResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	if r.data == nil {
+		resp.Diagnostics.AddError("Provider not configured", "Provider data is missing.")
+		return
+	}
 	var data WorkspaceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
@@ -133,6 +145,10 @@ func (r *WorkspaceResource) Delete(ctx context.Context, req resource.DeleteReque
 }
 
 func (r *WorkspaceResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	if r.data == nil {
+		resp.Diagnostics.AddError("Provider not configured", "Provider data is missing.")
+		return
+	}
 	c := client.NewWorkspaceClient(auth.AdminAPIKey{Key: r.data.apiKey})
 	id, err := c.ResolveByName(ctx, req.ID)
 	if err != nil {
