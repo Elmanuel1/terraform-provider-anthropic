@@ -303,8 +303,8 @@ func (r *EnvironmentResource) Delete(ctx context.Context, req resource.DeleteReq
 	}
 
 	c := client.NewEnvironmentClient(r.creds(data.WorkspaceId.ValueString()))
-	if err := c.Archive(ctx, data.Id.ValueString()); err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to archive environment: %s", err))
+	if err := c.Delete(ctx, data.Id.ValueString()); err != nil {
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete environment: %s", err))
 	}
 }
 

@@ -52,9 +52,8 @@ func (r *WorkspaceResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"name": schema.StringAttribute{
-				Required:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   "Workspace name as it appears in the Anthropic Console.",
+				Required:    true,
+				Description: "Workspace name as it appears in the Anthropic Console.",
 			},
 			"created_at": schema.StringAttribute{
 				Computed:      true,
@@ -123,8 +122,25 @@ func (r *WorkspaceResource) Read(ctx context.Context, req resource.ReadRequest, 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func (r *WorkspaceResource) Update(_ context.Context, _ resource.UpdateRequest, _ *resource.UpdateResponse) {
-	// name carries RequiresReplace; Update is never called.
+func (r *WorkspaceResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	if r.data == nil {
+		resp.Diagnostics.AddError("Provider not configured", "Provider data is missing.")
+		return
+	}
+	var data WorkspaceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	c := client.NewWorkspaceClient(auth.AdminAPIKey{Key: r.data.apiKey})
+	w, err := c.Update(ctx, data.Id.ValueString(), map[string]any{"name": data.Name.ValueString()})
+	if err != nil {
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to update workspace: %s", err))
+		return
+	}
+	data.fill(*w)
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
 func (r *WorkspaceResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
@@ -139,8 +155,8 @@ func (r *WorkspaceResource) Delete(ctx context.Context, req resource.DeleteReque
 	}
 
 	c := client.NewWorkspaceClient(auth.AdminAPIKey{Key: r.data.apiKey})
-	if err := c.Delete(ctx, data.Id.ValueString()); err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete workspace: %s", err))
+	if err := c.Archive(ctx, data.Id.ValueString()); err != nil {
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to archive workspace: %s", err))
 	}
 }
 
