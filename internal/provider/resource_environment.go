@@ -13,12 +13,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listdefault"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/mapplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
@@ -31,6 +27,7 @@ type EnvironmentModel struct {
 	Id                   types.String `tfsdk:"id"`
 	WorkspaceId          types.String `tfsdk:"workspace_id"`
 	Name                 types.String `tfsdk:"name"`
+	Description          types.String `tfsdk:"description"`
 	NetworkingType       types.String `tfsdk:"networking_type"`
 	AllowedHosts         types.List   `tfsdk:"allowed_hosts"`
 	AllowMCPServers      types.Bool   `tfsdk:"allow_mcp_servers"`
@@ -52,6 +49,7 @@ func nullableBool(b *bool) types.Bool {
 func (m *EnvironmentModel) fill(e client.EnvironmentResponse) {
 	m.Id = types.StringValue(e.ID)
 	m.Name = types.StringValue(e.Name)
+	m.Description = nullableString(e.Description)
 	m.CreatedAt = types.StringValue(e.CreatedAt)
 	m.UpdatedAt = types.StringValue(e.UpdatedAt)
 	m.ArchivedAt = nullableString(e.ArchivedAt)
@@ -123,49 +121,45 @@ func (r *EnvironmentResource) Schema(_ context.Context, _ resource.SchemaRequest
 				Description:   "ID of the workspace this environment belongs to.",
 			},
 			"name": schema.StringAttribute{
-				Required:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Required: true,
+			},
+			"description": schema.StringAttribute{
+				Optional: true,
+				Computed: true,
 			},
 			"networking_type": schema.StringAttribute{
-				Optional:      true,
-				Computed:      true,
-				Default:       stringdefault.StaticString("unrestricted"),
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   "unrestricted (default) or limited.",
+				Optional:    true,
+				Computed:    true,
+				Description: "unrestricted (default) or limited.",
 			},
 			"allowed_hosts": schema.ListAttribute{
-				Optional:      true,
-				Computed:      true,
-				ElementType:   types.StringType,
-				Default:       listdefault.StaticValue(types.ListValueMust(types.StringType, []attr.Value{})),
-				PlanModifiers: []planmodifier.List{listplanmodifier.RequiresReplace()},
-				Description:   "Allowed outbound hosts when networking_type is limited.",
+				Optional:    true,
+				Computed:    true,
+				ElementType: types.StringType,
+				Default:     listdefault.StaticValue(types.ListValueMust(types.StringType, []attr.Value{})),
+				Description: "Allowed outbound hosts when networking_type is limited.",
 			},
 			"allow_mcp_servers": schema.BoolAttribute{
-				Optional:      true,
-				Computed:      true,
-				Default:       booldefault.StaticBool(false),
-				PlanModifiers: []planmodifier.Bool{boolplanmodifier.RequiresReplace()},
-				Description:   "Allow MCP server network access. Only applies when networking_type is limited.",
+				Optional:    true,
+				Computed:    true,
+				Default:     booldefault.StaticBool(false),
+				Description: "Allow MCP server network access. Only applies when networking_type is limited.",
 			},
 			"allow_package_managers": schema.BoolAttribute{
-				Optional:      true,
-				Computed:      true,
-				Default:       booldefault.StaticBool(false),
-				PlanModifiers: []planmodifier.Bool{boolplanmodifier.RequiresReplace()},
-				Description:   "Allow package manager network access (PyPI, npm, etc). Only applies when networking_type is limited.",
+				Optional:    true,
+				Computed:    true,
+				Default:     booldefault.StaticBool(false),
+				Description: "Allow package manager network access (PyPI, npm, etc). Only applies when networking_type is limited.",
 			},
 			"packages": schema.StringAttribute{
-				Optional:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   `JSON-encoded packages to pre-install. Example: {"pip":["pandas","numpy"],"npm":["express"]}. Supported managers: apt, cargo, gem, go, npm, pip.`,
+				Optional:    true,
+				Description: `JSON-encoded packages to pre-install. Example: {"pip":["pandas","numpy"],"npm":["express"]}. Supported managers: apt, cargo, gem, go, npm, pip.`,
 			},
 			"metadata": schema.MapAttribute{
-				Optional:      true,
-				Computed:      true,
-				ElementType:   types.StringType,
-				PlanModifiers: []planmodifier.Map{mapplanmodifier.RequiresReplace()},
-				Description:   "Arbitrary string key-value pairs attached to the environment.",
+				Optional:    true,
+				Computed:    true,
+				ElementType: types.StringType,
+				Description: "Arbitrary string key-value pairs attached to the environment.",
 			},
 			"created_at": schema.StringAttribute{
 				Computed:      true,
@@ -189,7 +183,7 @@ func (r *EnvironmentResource) Configure(_ context.Context, req resource.Configur
 	r.data = data
 }
 
-func (r *EnvironmentResource) buildConfig(ctx context.Context, data EnvironmentModel) map[string]any {
+func (r *EnvironmentResource) buildBody(ctx context.Context, data EnvironmentModel) map[string]any {
 	networking := map[string]any{"type": data.NetworkingType.ValueString()}
 	if data.NetworkingType.ValueString() == "limited" {
 		var hosts []string
@@ -202,7 +196,6 @@ func (r *EnvironmentResource) buildConfig(ctx context.Context, data EnvironmentM
 	}
 
 	config := map[string]any{"type": "cloud", "networking": networking}
-
 	if !data.Packages.IsNull() && !data.Packages.IsUnknown() && data.Packages.ValueString() != "" {
 		var pkgs map[string]interface{}
 		if err := json.Unmarshal([]byte(data.Packages.ValueString()), &pkgs); err == nil && len(pkgs) > 0 {
@@ -210,7 +203,23 @@ func (r *EnvironmentResource) buildConfig(ctx context.Context, data EnvironmentM
 		}
 	}
 
-	return config
+	body := map[string]any{
+		"name":   data.Name.ValueString(),
+		"config": config,
+	}
+	if !data.Description.IsNull() && !data.Description.IsUnknown() {
+		body["description"] = data.Description.ValueString()
+	}
+	if !data.Metadata.IsNull() && !data.Metadata.IsUnknown() && len(data.Metadata.Elements()) > 0 {
+		meta := make(map[string]string, len(data.Metadata.Elements()))
+		data.Metadata.ElementsAs(ctx, &meta, false)
+		body["metadata"] = meta
+	}
+	return body
+}
+
+func (r *EnvironmentResource) creds(workspaceID string) auth.WIFBearer {
+	return auth.WIFBearer{Config: r.data.wif, WorkspaceID: workspaceID}
 }
 
 func (r *EnvironmentResource) requireWIF(diags interface{ AddError(string, string) }) bool {
@@ -232,18 +241,8 @@ func (r *EnvironmentResource) Create(ctx context.Context, req resource.CreateReq
 		return
 	}
 
-	body := map[string]any{
-		"name":   data.Name.ValueString(),
-		"config": r.buildConfig(ctx, data),
-	}
-	if !data.Metadata.IsNull() && !data.Metadata.IsUnknown() && len(data.Metadata.Elements()) > 0 {
-		meta := make(map[string]string, len(data.Metadata.Elements()))
-		data.Metadata.ElementsAs(ctx, &meta, false)
-		body["metadata"] = meta
-	}
-
-	c := client.NewEnvironmentClient(auth.WIFBearer{Config: r.data.wif, WorkspaceID: data.WorkspaceId.ValueString()})
-	env, err := c.Create(ctx, body)
+	c := client.NewEnvironmentClient(r.creds(data.WorkspaceId.ValueString()))
+	env, err := c.Create(ctx, r.buildBody(ctx, data))
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to create environment: %s", err))
 		return
@@ -262,7 +261,7 @@ func (r *EnvironmentResource) Read(ctx context.Context, req resource.ReadRequest
 		return
 	}
 
-	c := client.NewEnvironmentClient(auth.WIFBearer{Config: r.data.wif, WorkspaceID: data.WorkspaceId.ValueString()})
+	c := client.NewEnvironmentClient(r.creds(data.WorkspaceId.ValueString()))
 	env, err := c.Read(ctx, data.Id.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read environment: %s", err))
@@ -276,8 +275,21 @@ func (r *EnvironmentResource) Read(ctx context.Context, req resource.ReadRequest
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func (r *EnvironmentResource) Update(_ context.Context, _ resource.UpdateRequest, _ *resource.UpdateResponse) {
-	// All attributes carry RequiresReplace; Update is never called.
+func (r *EnvironmentResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var data EnvironmentModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	c := client.NewEnvironmentClient(r.creds(data.WorkspaceId.ValueString()))
+	env, err := c.Update(ctx, data.Id.ValueString(), r.buildBody(ctx, data))
+	if err != nil {
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to update environment: %s", err))
+		return
+	}
+	data.fill(*env)
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
 func (r *EnvironmentResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
@@ -290,9 +302,9 @@ func (r *EnvironmentResource) Delete(ctx context.Context, req resource.DeleteReq
 		return
 	}
 
-	c := client.NewEnvironmentClient(auth.WIFBearer{Config: r.data.wif, WorkspaceID: data.WorkspaceId.ValueString()})
-	if err := c.Delete(ctx, data.Id.ValueString()); err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete environment: %s", err))
+	c := client.NewEnvironmentClient(r.creds(data.WorkspaceId.ValueString()))
+	if err := c.Archive(ctx, data.Id.ValueString()); err != nil {
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to archive environment: %s", err))
 	}
 }
 
