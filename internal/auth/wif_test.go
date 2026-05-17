@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 	"time"
 )
@@ -154,6 +155,9 @@ func TestReadWIFConfig_NeitherToken(t *testing.T) {
 	_, err := ReadWIFConfig()
 	if err == nil {
 		t.Fatal("expected error when neither token var is set")
+	}
+	if !strings.Contains(err.Error(), "TFC_WORKLOAD_IDENTITY_TOKEN") {
+		t.Errorf("expected error to mention TFC_WORKLOAD_IDENTITY_TOKEN, got: %v", err)
 	}
 }
 

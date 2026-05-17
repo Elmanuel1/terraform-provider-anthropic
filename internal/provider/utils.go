@@ -11,7 +11,10 @@ func marshalJSONList(raw []json.RawMessage) types.String {
 	if len(raw) == 0 {
 		return types.StringValue("[]")
 	}
-	b, _ := json.Marshal(raw)
+	b, err := json.Marshal(raw)
+	if err != nil {
+		return types.StringValue("[]")
+	}
 	return types.StringValue(string(b))
 }
 

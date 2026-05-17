@@ -55,7 +55,7 @@ func (m *AgentModel) fill(a client.AgentResponse) {
 	m.Tools = marshalJSONList(a.Tools)
 	m.MCPServers = marshalJSONList(a.MCPServers)
 	m.Skills = marshalJSONList(a.Skills)
-	if a.Multiagent != nil {
+	if a.Multiagent != nil && string(*a.Multiagent) != "null" {
 		m.Multiagent = types.StringValue(string(*a.Multiagent))
 	} else {
 		m.Multiagent = types.StringNull()
@@ -79,19 +79,19 @@ func buildAgentBody(data AgentModel) map[string]any {
 	}
 	if !data.Tools.IsNull() && !data.Tools.IsUnknown() {
 		var tools []interface{}
-		if err := json.Unmarshal([]byte(data.Tools.ValueString()), &tools); err == nil && len(tools) > 0 {
+		if err := json.Unmarshal([]byte(data.Tools.ValueString()), &tools); err == nil {
 			body["tools"] = tools
 		}
 	}
 	if !data.MCPServers.IsNull() && !data.MCPServers.IsUnknown() {
 		var mcpServers []interface{}
-		if err := json.Unmarshal([]byte(data.MCPServers.ValueString()), &mcpServers); err == nil && len(mcpServers) > 0 {
+		if err := json.Unmarshal([]byte(data.MCPServers.ValueString()), &mcpServers); err == nil {
 			body["mcp_servers"] = mcpServers
 		}
 	}
 	if !data.Skills.IsNull() && !data.Skills.IsUnknown() {
 		var skills []interface{}
-		if err := json.Unmarshal([]byte(data.Skills.ValueString()), &skills); err == nil && len(skills) > 0 {
+		if err := json.Unmarshal([]byte(data.Skills.ValueString()), &skills); err == nil {
 			body["skills"] = skills
 		}
 	}

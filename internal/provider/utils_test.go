@@ -182,20 +182,24 @@ func TestBuildAgentBody_AllFields(t *testing.T) {
 	}
 }
 
-func TestBuildAgentBody_EmptyToolsArrayOmitted(t *testing.T) {
+func TestBuildAgentBody_EmptyToolsArrayIncluded(t *testing.T) {
 	data := AgentModel{
-		Name:        types.StringValue("a"),
-		Model:       types.StringValue("claude-sonnet-4-6"),
-		ModelSpeed:  types.StringValue("standard"),
-		System:      types.StringNull(),
+		Name:       types.StringValue("a"),
+		Model:      types.StringValue("claude-sonnet-4-6"),
+		ModelSpeed: types.StringValue("standard"),
+		System:     types.StringNull(),
 		Description: types.StringNull(),
-		Tools:       types.StringValue("[]"),
+		Tools:      types.StringValue("[]"),
 	}
 
 	body := buildAgentBody(data)
 
-	if _, exists := body["tools"]; exists {
-		t.Error("empty tools array should be omitted from body")
+	tools, exists := body["tools"]
+	if !exists {
+		t.Fatal("empty tools array must be included in body so callers can clear the field")
+	}
+	if arr, ok := tools.([]interface{}); !ok || len(arr) != 0 {
+		t.Errorf("expected empty slice, got %v", tools)
 	}
 }
 
