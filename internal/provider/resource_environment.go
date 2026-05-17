@@ -290,6 +290,9 @@ func (r *EnvironmentResource) Update(ctx context.Context, req resource.UpdateReq
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	if !r.requireWIF(&resp.Diagnostics) {
+		return
+	}
 
 	c := client.NewEnvironmentClient(r.creds(data.WorkspaceId.ValueString()))
 	env, err := c.Update(ctx, data.Id.ValueString(), r.buildBody(ctx, data))

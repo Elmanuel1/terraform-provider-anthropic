@@ -138,7 +138,7 @@ func (c *WorkspaceClient) Archive(ctx context.Context, id string) error {
 	if err != nil {
 		return fmt.Errorf("archiving workspace: %w", err)
 	}
-	if status != http.StatusOK && status != http.StatusNotFound {
+	if status != http.StatusOK && status != http.StatusNoContent && status != http.StatusNotFound {
 		return fmt.Errorf("archiving workspace returned HTTP %d", status)
 	}
 	return nil
