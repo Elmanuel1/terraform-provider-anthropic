@@ -1,9 +1,22 @@
 package provider
 
 import (
+	"encoding/json"
+
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
+
+func marshalJSONList(raw []json.RawMessage) types.String {
+	if len(raw) == 0 {
+		return types.StringValue("[]")
+	}
+	b, err := json.Marshal(raw)
+	if err != nil {
+		return types.StringValue("[]")
+	}
+	return types.StringValue(string(b))
+}
 
 func nullableString(s *string) types.String {
 	if s == nil {

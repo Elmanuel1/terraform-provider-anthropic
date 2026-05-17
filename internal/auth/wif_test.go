@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 	"time"
 )
@@ -109,6 +110,59 @@ func TestMintToken_APIError(t *testing.T) {
 
 // helpers
 
+func TestReadWIFConfig_GenericTokenFallback(t *testing.T) {
+	clearWIFEnv(t)
+	t.Setenv("ANTHROPIC_FEDERATION_RULE_ID", "rule-1")
+	t.Setenv("ANTHROPIC_ORGANIZATION_ID", "org-1")
+	t.Setenv("ANTHROPIC_SERVICE_ACCOUNT_ID", "svc-1")
+	t.Setenv("TFC_WORKLOAD_IDENTITY_TOKEN", "generic-tok")
+
+	cfg, err := ReadWIFConfig()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg == nil {
+		t.Fatal("expected non-nil config")
+	}
+	if cfg.jwt != "generic-tok" {
+		t.Errorf("expected generic-tok, got %s", cfg.jwt)
+	}
+}
+
+func TestReadWIFConfig_SuffixedTokenWins(t *testing.T) {
+	clearWIFEnv(t)
+	t.Setenv("ANTHROPIC_FEDERATION_RULE_ID", "rule-1")
+	t.Setenv("ANTHROPIC_ORGANIZATION_ID", "org-1")
+	t.Setenv("ANTHROPIC_SERVICE_ACCOUNT_ID", "svc-1")
+	t.Setenv("TFC_WORKLOAD_IDENTITY_TOKEN_ANTHROPIC", "suffixed-tok")
+	t.Setenv("TFC_WORKLOAD_IDENTITY_TOKEN", "generic-tok")
+
+	cfg, err := ReadWIFConfig()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.jwt != "suffixed-tok" {
+		t.Errorf("expected suffixed-tok to win, got %s", cfg.jwt)
+	}
+}
+
+func TestReadWIFConfig_NeitherToken(t *testing.T) {
+	clearWIFEnv(t)
+	t.Setenv("ANTHROPIC_FEDERATION_RULE_ID", "rule-1")
+	t.Setenv("ANTHROPIC_ORGANIZATION_ID", "org-1")
+	t.Setenv("ANTHROPIC_SERVICE_ACCOUNT_ID", "svc-1")
+
+	_, err := ReadWIFConfig()
+	if err == nil {
+		t.Fatal("expected error when neither token var is set")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "TFC_WORKLOAD_IDENTITY_TOKEN_ANTHROPIC") ||
+		!strings.Contains(msg, "TFC_WORKLOAD_IDENTITY_TOKEN") {
+		t.Errorf("expected error to mention both token vars, got: %v", err)
+	}
+}
+
 func clearWIFEnv(t *testing.T) {
 	t.Helper()
 	for _, k := range []string{
@@ -116,6 +170,7 @@ func clearWIFEnv(t *testing.T) {
 		"ANTHROPIC_ORGANIZATION_ID",
 		"ANTHROPIC_SERVICE_ACCOUNT_ID",
 		"TFC_WORKLOAD_IDENTITY_TOKEN_ANTHROPIC",
+		"TFC_WORKLOAD_IDENTITY_TOKEN",
 	} {
 		os.Unsetenv(k)
 	}

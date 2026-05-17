@@ -15,6 +15,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
@@ -131,6 +132,7 @@ func (r *EnvironmentResource) Schema(_ context.Context, _ resource.SchemaRequest
 			"networking_type": schema.StringAttribute{
 				Optional:    true,
 				Computed:    true,
+				Default:     stringdefault.StaticString("unrestricted"),
 				Description: "unrestricted (default) or limited.",
 			},
 			"allowed_hosts": schema.ListAttribute{
@@ -232,7 +234,7 @@ func (r *EnvironmentResource) creds(workspaceID string) auth.WIFBearer {
 func (r *EnvironmentResource) requireWIF(diags interface{ AddError(string, string) }) bool {
 	if r.data == nil || r.data.wif == nil {
 		diags.AddError("Missing WIF configuration",
-			"ANTHROPIC_FEDERATION_RULE_ID, ANTHROPIC_ORGANIZATION_ID, ANTHROPIC_SERVICE_ACCOUNT_ID, and TFC_WORKLOAD_IDENTITY_TOKEN_ANTHROPIC are required for environment resources.")
+			"ANTHROPIC_FEDERATION_RULE_ID, ANTHROPIC_ORGANIZATION_ID, ANTHROPIC_SERVICE_ACCOUNT_ID, and one of TFC_WORKLOAD_IDENTITY_TOKEN_ANTHROPIC or TFC_WORKLOAD_IDENTITY_TOKEN are required for environment resources.")
 		return false
 	}
 	return true
@@ -286,6 +288,9 @@ func (r *EnvironmentResource) Update(ctx context.Context, req resource.UpdateReq
 	var data EnvironmentModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
+		return
+	}
+	if !r.requireWIF(&resp.Diagnostics) {
 		return
 	}
 
