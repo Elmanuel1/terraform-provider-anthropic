@@ -4,18 +4,49 @@ All notable changes to this provider are documented here.
 
 ---
 
-## [0.4.0] — Unreleased
+## [0.4.4] — 2026-05-17
+
+### Fixed
+
+- **`anthropic-wif_memory_store`** — provider now sends `anthropic-beta: managed-agents-2026-04-01` when authenticating with the admin API key. The previous `admin-api-2025-05-21` beta was rejected by the `/v1/memory_stores` endpoint with HTTP 401.
+- **`AdminAPIKey`** — added optional `Beta` field to allow per-caller beta header override. Defaults to `admin-api-2025-05-21` for existing callers.
+
+---
+
+## [0.4.3] — 2026-05-17
+
+### Fixed
+
+- **`anthropic-wif_memory_store`** — switched auth from WIF bearer to admin API key. The `/v1/memory_stores` endpoint rejected WIF bearer tokens with HTTP 401; admin API key is the correct credential.
+- **`anthropic-wif_memory_store`** — removed `workspace_id` attribute (not required by the API endpoint).
+- **`anthropic-wif_vault_credential`** — strip trailing slash from `mcp_server_url` returned by the API. The API echoes URLs with a trailing slash causing Terraform to report "provider produced inconsistent result" on create.
+
+---
+
+## [0.4.2] — 2026-05-17
+
+### Fixed
+
+- **`anthropic-wif_vault_credential`** — write-only fields (`token`, `access_token`, `refresh_token`, `client_secret`) are now correctly read from `req.Config` in both `Create` and `Update`. These fields are absent from the plan's new state per terraform-plugin-framework semantics, so reading from `req.Plan` only caused them to be empty in the API request body (HTTP 400 `auth.token: Field required`).
+
+---
+
+## [0.4.1] — 2026-05-17
+
+### Fixed
+
+- Retracted — superseded by v0.4.2.
+
+---
+
+## [0.4.0] — 2026-05-17
 
 ### Added
 
-- **`anthropic-wif_vault`** — new resource for managing vaults. Vaults are workspace-scoped collections of credentials for end-users. Supports `display_name`, `metadata`, and `force_delete` (archive by default, hard-delete when true). Import by vault ID.
-- **`anthropic-wif_vault_credential`** — new resource for managing credentials nested under a vault. Supports both `static_bearer` and `mcp_oauth` auth types via a JSON `auth` field. Write-only secret fields (`token`, `access_token`, `refresh_token`, `client_secret`) are stored in state but never returned by the API — they are preserved across reads automatically. `vault_id` is immutable after creation. Import by `vault_id/credential_id`.
-- **`anthropic-wif_memory_store`** — new resource for managing memory stores. Supports `name`, `description`, `metadata`, and `force_delete`. Import by memory store ID.
-
-### Notes
-
-- All three new resources are workspace-scoped and require a `workspace_id` field (Required, forces replacement). The workspace ID is used to mint a WIF bearer token — the same auth mechanism as agents and environments.
-- All three support soft-delete (archive) by default. Set `force_delete = true` to permanently delete a resource.
+- **`anthropic-wif_vault`** — workspace-scoped vault for storing MCP server credentials. Supports `display_name`, `metadata`, and `force_delete`. Import by `workspace_id/vault_id`.
+- **`anthropic-wif_vault_credential`** — credential nested under a vault. Supports `static_bearer` and `mcp_oauth` auth types. Write-only secret fields (`token`, `access_token`, `refresh_token`, `client_secret`) are never stored in state. Import by `workspace_id/vault_id/credential_id`.
+- **`anthropic-wif_memory_store`** — memory store for agent persistence. Supports `name`, `description`, `metadata`, and `force_delete`. Import by `workspace_id/memory_store_id`.
+- All new resources authenticate via WIF bearer token and support soft-delete (archive) by default.
 
 ---
 

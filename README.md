@@ -1,75 +1,97 @@
-# terraform-provider-anthropic-wif (validator)
+# terraform-provider-anthropic-wif
 
-Minimal Terraform provider that mints Anthropic WIF tokens per workspace via TFC OIDC injection. Used to validate the full token exchange flow before building the real provider.
+Terraform provider for managing Anthropic platform resources using Workload Identity Federation (WIF) via Terraform Cloud OIDC.
 
-## What it does
+Registry: [registry.terraform.io/providers/Elmanuel1/anthropic-wif](https://registry.terraform.io/providers/Elmanuel1/anthropic-wif/latest)
 
-On each `terraform plan` or `apply`:
-1. Reads TFC-injected `TFC_WORKLOAD_IDENTITY_TOKEN_ANTHROPIC` as the assertion JWT
-2. Resolves `workspace_name` → `workspace_id` via Admin API
-3. POSTs to `POST /v1/oauth/token` (RFC 7523 jwt-bearer) per workspace
-4. Outputs token prefix + expiry — proves exchange succeeded without exposing the token
+## Resources
 
-## TFC workspace setup
-
-### Environment variables (set in TFC workspace)
-
-| Variable | Value | Sensitive |
+| Resource | Auth | Description |
 |---|---|---|
-| `TFC_WORKLOAD_IDENTITY_AUDIENCE_ANTHROPIC` | `https://api.anthropic.com` | No — triggers TFC to inject the JWT |
-| `ANTHROPIC_ADMIN_API_KEY` | `sk-ant-...` | Yes — Admin API for workspace resolution only |
-| `ANTHROPIC_FEDERATION_RULE_ID` | `fdrl_...` | Yes |
-| `ANTHROPIC_ORGANIZATION_ID` | `00000000-...` | Yes |
-| `ANTHROPIC_SERVICE_ACCOUNT_ID` | `svac_...` | Yes |
+| `anthropic-wif_workspace` | Admin API key | Anthropic workspace |
+| `anthropic-wif_agent` | WIF | Agent with model, tools, and skills |
+| `anthropic-wif_environment` | WIF | Execution environment for agents |
+| `anthropic-wif_vault` | WIF | Vault for storing credentials |
+| `anthropic-wif_vault_credential` | WIF | MCP server credential in a vault |
+| `anthropic-wif_memory_store` | WIF | Memory store for agent persistence |
 
-`TFC_WORKLOAD_IDENTITY_TOKEN_ANTHROPIC` is injected automatically by TFC — do not set it manually.
+## Quick Start
 
-### Anthropic Console setup
+```terraform
+terraform {
+  required_providers {
+    anthropic-wif = {
+      source  = "Elmanuel1/anthropic-wif"
+      version = "~> 0.4"
+    }
+  }
+}
 
-1. Console → Workload identity → Create issuer
-   - Issuer URL: `https://app.terraform.io`
-   - JWKS source: `discovery`
-2. Console → Service accounts → Create service account
-3. Console → Federation rules → Create rule
+provider "anthropic-wif" {}
+
+resource "anthropic-wif_workspace" "example" {
+  name = "my-workspace"
+}
+
+resource "anthropic-wif_agent" "example" {
+  workspace_id = anthropic-wif_workspace.example.id
+  name         = "my-agent"
+  model        = "claude-sonnet-4-6"
+  system       = "You are a helpful assistant."
+}
+```
+
+## Authentication
+
+### Environment Variables
+
+| Variable | Description | Required |
+|---|---|---|
+| `ANTHROPIC_ADMIN_API_KEY` | Admin API key (`sk-ant-admin-...`) | Always |
+| `ANTHROPIC_FEDERATION_RULE_ID` | Federation rule ID (`fdrl_...`) | WIF resources |
+| `ANTHROPIC_ORGANIZATION_ID` | Organization UUID | WIF resources |
+| `ANTHROPIC_SERVICE_ACCOUNT_ID` | Service account ID (`svac_...`) | WIF resources |
+| `TFC_WORKLOAD_IDENTITY_TOKEN_ANTHROPIC` | TFC-injected OIDC JWT | WIF resources |
+| `TFC_WORKLOAD_IDENTITY_TOKEN` | Fallback OIDC JWT | WIF resources (fallback) |
+
+Set `TFC_WORKLOAD_IDENTITY_AUDIENCE_ANTHROPIC=https://api.anthropic.com` on your TFC workspace to enable automatic JWT injection.
+
+### Anthropic Console Setup
+
+1. **Workload Identity Issuer**
+   - Console → Settings → Workload Identity → Create issuer
+   - Issuer URL: `https://app.terraform.io` | JWKS source: `discovery`
+
+2. **Service Account**
+   - Console → Settings → Service Accounts → Create
+
+3. **Federation Rule**
+   - Console → Settings → Federation Rules → Create
    - Audience: `https://api.anthropic.com`
-   - Subject prefix: `organization:<your-tfc-org>:project:<project>:workspace:<workspace>:run_phase:`
+   - Subject: `organization:<tfc-org>:project:<project>:workspace:<workspace>:run_phase:apply`
    - Target: service account from step 2
    - Scope: `workspace:developer`
 
-## Build and run locally (dev override)
+## Local Development
 
 ```bash
-cd tf-provider-wif-validator
-go mod tidy
 go build -o terraform-provider-anthropic-wif .
 
 # ~/.terraformrc
 cat > ~/.terraformrc <<EOF
 provider_installation {
   dev_overrides {
-    "registry.terraform.io/build4africa/anthropic-wif" = "/path/to/tf-provider-wif-validator"
+    "Elmanuel1/anthropic-wif" = "/path/to/provider/binary"
   }
   direct {}
 }
 EOF
 
-# Set env vars manually for local test (use ANTHROPIC_IDENTITY_TOKEN instead of TFC token)
-export ANTHROPIC_IDENTITY_TOKEN="<manually minted JWT>"
+export ANTHROPIC_ADMIN_API_KEY="sk-ant-admin-..."
 export ANTHROPIC_FEDERATION_RULE_ID="fdrl_..."
 export ANTHROPIC_ORGANIZATION_ID="00000000-..."
 export ANTHROPIC_SERVICE_ACCOUNT_ID="svac_..."
-export ANTHROPIC_ADMIN_API_KEY="sk-ant-..."
+export TFC_WORKLOAD_IDENTITY_TOKEN="<jwt>"
 
-cd examples
 terraform plan
-```
-
-## Run via TFC
-
-```bash
-cd examples
-# Edit main.tf: set your TFC org + workspace name
-terraform login
-terraform init
-terraform plan   # TFC runner injects TFC_WORKLOAD_IDENTITY_TOKEN_ANTHROPIC
 ```
