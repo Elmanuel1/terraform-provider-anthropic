@@ -34,6 +34,9 @@ func ReadWIFConfig() (*WIFConfig, error) {
 	org := os.Getenv("ANTHROPIC_ORGANIZATION_ID")
 	svc := os.Getenv("ANTHROPIC_SERVICE_ACCOUNT_ID")
 	jwt := os.Getenv("TFC_WORKLOAD_IDENTITY_TOKEN_ANTHROPIC")
+	if jwt == "" {
+		jwt = os.Getenv("TFC_WORKLOAD_IDENTITY_TOKEN")
+	}
 
 	// Not configured — no WIF
 	if rule == "" && org == "" && svc == "" && jwt == "" {
@@ -51,7 +54,7 @@ func ReadWIFConfig() (*WIFConfig, error) {
 		missing = append(missing, "ANTHROPIC_SERVICE_ACCOUNT_ID")
 	}
 	if jwt == "" {
-		missing = append(missing, "TFC_WORKLOAD_IDENTITY_TOKEN_ANTHROPIC")
+		missing = append(missing, "TFC_WORKLOAD_IDENTITY_TOKEN_ANTHROPIC (or TFC_WORKLOAD_IDENTITY_TOKEN)")
 	}
 	if len(missing) > 0 {
 		return nil, fmt.Errorf("incomplete WIF configuration, missing: %v", missing)
