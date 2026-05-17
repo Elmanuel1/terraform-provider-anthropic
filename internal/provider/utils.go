@@ -1,11 +1,32 @@
 package provider
 
 import (
+	"context"
 	"encoding/json"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
+
+// versionIncrementOnUpdate marks the version field as unknown during updates
+// so Terraform doesn't enforce the prior value after the API increments it.
+type versionIncrementOnUpdate struct{}
+
+func (versionIncrementOnUpdate) Description(_ context.Context) string {
+	return "Version is unknown after update — the API increments it on every write."
+}
+func (versionIncrementOnUpdate) MarkdownDescription(ctx context.Context) string {
+	return "Version is unknown after update — the API increments it on every write."
+}
+func (versionIncrementOnUpdate) PlanModifyInt64(_ context.Context, req planmodifier.Int64Request, resp *planmodifier.Int64Response) {
+	// On create the state is null — keep computed unknown so the API value is accepted.
+	// On update the state is known — mark unknown so Terraform allows the API to increment it.
+	if req.StateValue.IsNull() {
+		return
+	}
+	resp.PlanValue = types.Int64Unknown()
+}
 
 // apiInjectedToolKeys are fields the API adds to tool objects that users never specify.
 // Stripping them keeps the stored JSON consistent with the plan value.
