@@ -34,6 +34,7 @@ type EnvironmentModel struct {
 	AllowPackageManagers types.Bool   `tfsdk:"allow_package_managers"`
 	Packages             types.String `tfsdk:"packages"`
 	Metadata             types.Map    `tfsdk:"metadata"`
+	ForceDelete          types.Bool   `tfsdk:"force_delete"`
 	CreatedAt            types.String `tfsdk:"created_at"`
 	UpdatedAt            types.String `tfsdk:"updated_at"`
 	ArchivedAt           types.String `tfsdk:"archived_at"`
@@ -164,6 +165,12 @@ func (r *EnvironmentResource) Schema(_ context.Context, _ resource.SchemaRequest
 			"created_at": schema.StringAttribute{
 				Computed:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+			},
+			"force_delete": schema.BoolAttribute{
+				Optional:    true,
+				Computed:    true,
+				Default:     booldefault.StaticBool(false),
+				Description: "When true, permanently deletes the environment on destroy. When false (default), archives it instead.",
 			},
 			"updated_at":  schema.StringAttribute{Computed: true},
 			"archived_at": schema.StringAttribute{Computed: true},
@@ -303,8 +310,14 @@ func (r *EnvironmentResource) Delete(ctx context.Context, req resource.DeleteReq
 	}
 
 	c := client.NewEnvironmentClient(r.creds(data.WorkspaceId.ValueString()))
-	if err := c.Delete(ctx, data.Id.ValueString()); err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete environment: %s", err))
+	if data.ForceDelete.ValueBool() {
+		if err := c.Delete(ctx, data.Id.ValueString()); err != nil {
+			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete environment: %s", err))
+		}
+	} else {
+		if err := c.Archive(ctx, data.Id.ValueString()); err != nil {
+			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to archive environment: %s", err))
+		}
 	}
 }
 
