@@ -132,7 +132,7 @@ func buildCredentialBody(data VaultCredentialModel) (map[string]any, error) {
 	if !data.DisplayName.IsNull() && !data.DisplayName.IsUnknown() {
 		body["display_name"] = data.DisplayName.ValueString()
 	}
-	if !data.Metadata.IsNull() && !data.Metadata.IsUnknown() && len(data.Metadata.Elements()) > 0 {
+	if !data.Metadata.IsNull() && !data.Metadata.IsUnknown() {
 		meta := make(map[string]string)
 		data.Metadata.ElementsAs(context.Background(), &meta, false)
 		body["metadata"] = meta

@@ -42,7 +42,7 @@ func (m *VaultModel) fill(v client.VaultResponse) {
 
 func buildVaultBody(data VaultModel) map[string]any {
 	body := map[string]any{"display_name": data.DisplayName.ValueString()}
-	if !data.Metadata.IsNull() && !data.Metadata.IsUnknown() && len(data.Metadata.Elements()) > 0 {
+	if !data.Metadata.IsNull() && !data.Metadata.IsUnknown() {
 		meta := make(map[string]string)
 		data.Metadata.ElementsAs(context.Background(), &meta, false)
 		body["metadata"] = meta

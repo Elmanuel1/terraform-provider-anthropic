@@ -7,6 +7,7 @@ import (
 
 	"github.com/Elmanuel1/terraform-provider-anthropic-wif/internal/auth"
 	"github.com/Elmanuel1/terraform-provider-anthropic-wif/internal/client"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -42,14 +43,14 @@ func (m *MemoryStoreModel) fill(s client.MemoryStoreResponse) {
 	m.Metadata = fillMetadata(s.Metadata)
 }
 
-func buildMemoryStoreBody(data MemoryStoreModel) map[string]any {
+func buildMemoryStoreBody(ctx context.Context, data MemoryStoreModel, diags *diag.Diagnostics) map[string]any {
 	body := map[string]any{"name": data.Name.ValueString()}
 	if !data.Description.IsNull() && !data.Description.IsUnknown() {
 		body["description"] = data.Description.ValueString()
 	}
-	if !data.Metadata.IsNull() && !data.Metadata.IsUnknown() && len(data.Metadata.Elements()) > 0 {
+	if !data.Metadata.IsNull() && !data.Metadata.IsUnknown() {
 		meta := make(map[string]string)
-		data.Metadata.ElementsAs(context.Background(), &meta, false)
+		diags.Append(data.Metadata.ElementsAs(ctx, &meta, false)...)
 		body["metadata"] = meta
 	}
 	return body
@@ -140,7 +141,10 @@ func (r *MemoryStoreResource) Create(ctx context.Context, req resource.CreateReq
 	}
 
 	c := client.NewMemoryStoreClient(auth.WIFBearer{Config: r.data.wif, WorkspaceID: data.WorkspaceId.ValueString()})
-	s, err := c.Create(ctx, buildMemoryStoreBody(data))
+	s, err := c.Create(ctx, buildMemoryStoreBody(ctx, data, &resp.Diagnostics))
+	if resp.Diagnostics.HasError() {
+		return
+	}
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to create memory store: %s", err))
 		return
@@ -184,7 +188,10 @@ func (r *MemoryStoreResource) Update(ctx context.Context, req resource.UpdateReq
 	}
 
 	c := client.NewMemoryStoreClient(auth.WIFBearer{Config: r.data.wif, WorkspaceID: data.WorkspaceId.ValueString()})
-	s, err := c.Update(ctx, data.Id.ValueString(), buildMemoryStoreBody(data))
+	s, err := c.Update(ctx, data.Id.ValueString(), buildMemoryStoreBody(ctx, data, &resp.Diagnostics))
+	if resp.Diagnostics.HasError() {
+		return
+	}
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to update memory store: %s", err))
 		return
