@@ -15,7 +15,7 @@ type EnvironmentResponse struct {
 	Name        string  `json:"name"`
 	Description *string `json:"description"`
 	Config      *struct {
-		Packages   map[string][]string `json:"packages"`
+		Packages   json.RawMessage `json:"packages"`
 		Networking *struct {
 			Type                 string   `json:"type"`
 			AllowedHosts         []string `json:"allowed_hosts"`

@@ -86,11 +86,8 @@ func (m *EnvironmentModel) fill(e client.EnvironmentResponse) {
 		}
 	}
 
-	if e.Config != nil && len(e.Config.Packages) > 0 {
-		b, err := json.Marshal(e.Config.Packages)
-		if err == nil {
-			m.Packages = types.StringValue(string(b))
-		}
+	if e.Config != nil && len(e.Config.Packages) > 0 && string(e.Config.Packages) != "null" {
+		m.Packages = types.StringValue(string(e.Config.Packages))
 	} else {
 		m.Packages = types.StringNull()
 	}

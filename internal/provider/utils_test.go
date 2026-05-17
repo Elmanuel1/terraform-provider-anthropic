@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/Elmanuel1/terraform-provider-anthropic-wif/internal/client"
@@ -89,7 +90,7 @@ func TestEnvironmentModel_Fill_LimitedNetworking(t *testing.T) {
 		CreatedAt: "2024-01-01T00:00:00Z",
 		UpdatedAt: "2024-01-01T00:00:00Z",
 		Config: &struct {
-			Packages   map[string][]string `json:"packages"`
+			Packages   json.RawMessage `json:"packages"`
 			Networking *struct {
 				Type                 string   `json:"type"`
 				AllowedHosts         []string `json:"allowed_hosts"`
