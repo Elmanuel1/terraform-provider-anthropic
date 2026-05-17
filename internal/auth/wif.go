@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-log/tflog"
@@ -21,7 +22,8 @@ type WIFConfig struct {
 	FederationRuleID string
 	OrganizationID   string
 	ServiceAccountID string
-	jwt              string // TFC-injected OIDC token, valid for the run
+	jwt              string   // TFC-injected OIDC token, valid for the run; one-time-use JTI
+	tokenCache       sync.Map // key: workspaceID → *MintedToken; prevents JTI reuse across parallel creates
 }
 
 type MintedToken struct {
