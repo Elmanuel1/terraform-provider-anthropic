@@ -130,7 +130,7 @@ func (r *VaultResource) Create(ctx context.Context, req resource.CreateRequest, 
 		return
 	}
 
-	c := client.NewVaultClient(auth.WIFBearer{Config: r.data.wif, WorkspaceID: data.WorkspaceId.ValueString()})
+	c := client.NewVaultClient(auth.WIFBearer{Config: r.data.wif, WorkspaceID: data.WorkspaceId.ValueString(), Beta: auth.NoBeta})
 	v, err := c.Create(ctx, buildVaultBody(data))
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to create vault: %s", err))
@@ -150,7 +150,7 @@ func (r *VaultResource) Read(ctx context.Context, req resource.ReadRequest, resp
 		return
 	}
 
-	c := client.NewVaultClient(auth.WIFBearer{Config: r.data.wif, WorkspaceID: data.WorkspaceId.ValueString()})
+	c := client.NewVaultClient(auth.WIFBearer{Config: r.data.wif, WorkspaceID: data.WorkspaceId.ValueString(), Beta: auth.NoBeta})
 	v, err := c.Read(ctx, data.Id.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read vault: %s", err))
@@ -174,7 +174,7 @@ func (r *VaultResource) Update(ctx context.Context, req resource.UpdateRequest, 
 		return
 	}
 
-	c := client.NewVaultClient(auth.WIFBearer{Config: r.data.wif, WorkspaceID: data.WorkspaceId.ValueString()})
+	c := client.NewVaultClient(auth.WIFBearer{Config: r.data.wif, WorkspaceID: data.WorkspaceId.ValueString(), Beta: auth.NoBeta})
 	v, err := c.Update(ctx, data.Id.ValueString(), buildVaultBody(data))
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to update vault: %s", err))
@@ -194,7 +194,7 @@ func (r *VaultResource) Delete(ctx context.Context, req resource.DeleteRequest, 
 		return
 	}
 
-	c := client.NewVaultClient(auth.WIFBearer{Config: r.data.wif, WorkspaceID: data.WorkspaceId.ValueString()})
+	c := client.NewVaultClient(auth.WIFBearer{Config: r.data.wif, WorkspaceID: data.WorkspaceId.ValueString(), Beta: auth.NoBeta})
 	if data.ForceDelete.ValueBool() {
 		if err := c.Delete(ctx, data.Id.ValueString()); err != nil {
 			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete vault: %s", err))
