@@ -9,19 +9,9 @@ import (
 )
 
 // WIFBearer authenticates using a minted WIF token scoped to a workspace.
-// Beta overrides the anthropic-beta header. If empty, AgentsBeta is used.
-// Set Beta to NoBeta to suppress the header entirely (for non-agents APIs).
 type WIFBearer struct {
 	Config      *WIFConfig
 	WorkspaceID string
-	Beta        string
-}
-
-func (w WIFBearer) beta() string {
-	if w.Beta == "" {
-		return AgentsBeta
-	}
-	return w.Beta
 }
 
 func (w WIFBearer) Authenticate(ctx context.Context, req *http.Request) error {
@@ -40,9 +30,7 @@ func (w WIFBearer) Authenticate(ctx context.Context, req *http.Request) error {
 		if time.Now().Before(tok.ExpiresAt.Add(-30 * time.Second)) {
 			req.Header.Set(HeaderAuth, "Bearer "+tok.AccessToken)
 			req.Header.Set(HeaderVersion, APIVersion)
-			if b := w.beta(); b != NoBeta {
-				req.Header.Set(HeaderBeta, b)
-			}
+			req.Header.Set(HeaderBeta, AgentsBeta)
 			return nil
 		}
 	}
@@ -54,8 +42,6 @@ func (w WIFBearer) Authenticate(ctx context.Context, req *http.Request) error {
 	w.Config.tokenCache.Store(w.WorkspaceID, tok)
 	req.Header.Set(HeaderAuth, "Bearer "+tok.AccessToken)
 	req.Header.Set(HeaderVersion, APIVersion)
-	if b := w.beta(); b != NoBeta {
-		req.Header.Set(HeaderBeta, b)
-	}
+	req.Header.Set(HeaderBeta, AgentsBeta)
 	return nil
 }

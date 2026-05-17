@@ -18,7 +18,5 @@ const (
 	APIVersion        = "2023-06-01"
 	AdminBeta         = "admin-api-2025-05-21"
 	AgentsBeta        = "managed-agents-2026-04-01"
-	// NoBeta suppresses the anthropic-beta header when set as WIFBearer.Beta.
-	NoBeta = "-"
 
 )

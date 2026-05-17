@@ -286,17 +286,6 @@ func (r *VaultCredentialResource) Create(ctx context.Context, req resource.Creat
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	// WriteOnly fields are absent from the plan's new state — read them from config.
-	var cfg VaultCredentialModel
-	resp.Diagnostics.Append(req.Config.Get(ctx, &cfg)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-	data.Token = cfg.Token
-	data.AccessToken = cfg.AccessToken
-	data.RefreshToken = cfg.RefreshToken
-	data.ClientSecret = cfg.ClientSecret
-
 	if !r.requireWIF(&resp.Diagnostics) {
 		return
 	}
@@ -307,7 +296,7 @@ func (r *VaultCredentialResource) Create(ctx context.Context, req resource.Creat
 		return
 	}
 
-	c := client.NewVaultCredentialClient(auth.WIFBearer{Config: r.data.wif, WorkspaceID: data.WorkspaceId.ValueString(), Beta: auth.NoBeta})
+	c := client.NewVaultCredentialClient(auth.WIFBearer{Config: r.data.wif, WorkspaceID: data.WorkspaceId.ValueString()})
 	cred, err := c.Create(ctx, data.VaultId.ValueString(), body)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to create vault credential: %s", err))
@@ -327,7 +316,7 @@ func (r *VaultCredentialResource) Read(ctx context.Context, req resource.ReadReq
 		return
 	}
 
-	c := client.NewVaultCredentialClient(auth.WIFBearer{Config: r.data.wif, WorkspaceID: data.WorkspaceId.ValueString(), Beta: auth.NoBeta})
+	c := client.NewVaultCredentialClient(auth.WIFBearer{Config: r.data.wif, WorkspaceID: data.WorkspaceId.ValueString()})
 	cred, err := c.Read(ctx, data.VaultId.ValueString(), data.Id.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read vault credential: %s", err))
@@ -347,17 +336,6 @@ func (r *VaultCredentialResource) Update(ctx context.Context, req resource.Updat
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	// WriteOnly fields are absent from the plan's new state — read them from config.
-	var cfg VaultCredentialModel
-	resp.Diagnostics.Append(req.Config.Get(ctx, &cfg)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-	data.Token = cfg.Token
-	data.AccessToken = cfg.AccessToken
-	data.RefreshToken = cfg.RefreshToken
-	data.ClientSecret = cfg.ClientSecret
-
 	if !r.requireWIF(&resp.Diagnostics) {
 		return
 	}
@@ -368,7 +346,7 @@ func (r *VaultCredentialResource) Update(ctx context.Context, req resource.Updat
 		return
 	}
 
-	c := client.NewVaultCredentialClient(auth.WIFBearer{Config: r.data.wif, WorkspaceID: data.WorkspaceId.ValueString(), Beta: auth.NoBeta})
+	c := client.NewVaultCredentialClient(auth.WIFBearer{Config: r.data.wif, WorkspaceID: data.WorkspaceId.ValueString()})
 	cred, err := c.Update(ctx, data.VaultId.ValueString(), data.Id.ValueString(), body)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to update vault credential: %s", err))
@@ -388,7 +366,7 @@ func (r *VaultCredentialResource) Delete(ctx context.Context, req resource.Delet
 		return
 	}
 
-	c := client.NewVaultCredentialClient(auth.WIFBearer{Config: r.data.wif, WorkspaceID: data.WorkspaceId.ValueString(), Beta: auth.NoBeta})
+	c := client.NewVaultCredentialClient(auth.WIFBearer{Config: r.data.wif, WorkspaceID: data.WorkspaceId.ValueString()})
 	if data.ForceDelete.ValueBool() {
 		if err := c.Delete(ctx, data.VaultId.ValueString(), data.Id.ValueString()); err != nil {
 			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete vault credential: %s", err))
