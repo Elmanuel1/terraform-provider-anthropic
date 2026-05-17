@@ -76,5 +76,8 @@ func (p *wifProvider) Resources(_ context.Context) []func() resource.Resource {
 		NewWorkspaceResource,
 		NewAgentResource,
 		NewEnvironmentResource,
+		NewVaultResource,
+		NewVaultCredentialResource,
+		NewMemoryStoreResource,
 	}
 }
