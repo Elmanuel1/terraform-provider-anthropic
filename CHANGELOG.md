@@ -4,6 +4,14 @@ All notable changes to this provider are documented here.
 
 ---
 
+## [0.4.5] (2026-05-17)
+
+### Fixed
+
+- **WIF token lifetime**: `MintToken` now requests `expires_in: 5400` (90 minutes) in the token exchange body to match TFC's maximum run duration. A local minimum of 90 minutes is also enforced on the returned value so long-running applies do not hit mid-run token expiry.
+
+---
+
 ## [0.4.4] (2026-05-17)
 
 ### Fixed

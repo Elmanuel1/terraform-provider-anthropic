@@ -134,13 +134,14 @@ func MintToken(ctx context.Context, cfg *WIFConfig, workspaceID string) (*Minted
 	if cfg == nil {
 		return nil, fmt.Errorf("missing WIF config")
 	}
-	body, err := json.Marshal(map[string]string{
+	body, err := json.Marshal(map[string]any{
 		"grant_type":         "urn:ietf:params:oauth:grant-type:jwt-bearer",
 		"assertion":          cfg.jwt,
 		"federation_rule_id": cfg.FederationRuleID,
 		"organization_id":    cfg.OrganizationID,
 		"service_account_id": cfg.ServiceAccountID,
 		"workspace_id":       workspaceID,
+		"expires_in":         5400, // 90 minutes — matches TFC maximum run duration
 	})
 	if err != nil {
 		return nil, fmt.Errorf("building exchange request: %w", err)
@@ -176,8 +177,14 @@ func MintToken(ctx context.Context, cfg *WIFConfig, workspaceID string) (*Minted
 		return nil, fmt.Errorf("token exchange returned empty access_token")
 	}
 
+	ttl := time.Duration(result.ExpiresIn) * time.Second
+	const minTTL = 90 * time.Minute
+	if ttl < minTTL {
+		ttl = minTTL
+	}
+
 	return &MintedToken{
 		AccessToken: result.AccessToken,
-		ExpiresAt:   time.Now().Add(time.Duration(result.ExpiresIn) * time.Second),
+		ExpiresAt:   time.Now().Add(ttl),
 	}, nil
 }
