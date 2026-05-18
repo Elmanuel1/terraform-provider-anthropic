@@ -2,7 +2,6 @@ package provider
 
 import (
 	"context"
-	"os"
 
 	"github.com/Elmanuel1/terraform-provider-anthropic-managed-agents/internal/auth"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
@@ -41,30 +40,30 @@ func (p *anthropicProvider) Metadata(_ context.Context, _ provider.MetadataReque
 func (p *anthropicProvider) Schema(_ context.Context, _ provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description: "Terraform provider for managing Anthropic platform resources. " +
-			"All attributes are optional in the provider block and fall back to environment variables. " +
+			"All attributes are optional in the provider block. " +
 			"Each resource validates only the credentials it needs at operation time.",
 		Attributes: map[string]schema.Attribute{
 			"admin_api_key": schema.StringAttribute{
 				Optional:    true,
 				Sensitive:   true,
-				Description: "Anthropic Admin API key (sk-ant-admin-...). Falls back to ANTHROPIC_ADMIN_API_KEY. Required for anthropic_workspace and anthropic_memory_store.",
+				Description: "Anthropic Admin API key (sk-ant-admin-...). Required for anthropic_workspace and anthropic_memory_store.",
 			},
 			"workspace_api_key": schema.StringAttribute{
 				Optional:    true,
 				Sensitive:   true,
-				Description: "Anthropic workspace API key (sk-ant-api03-...). Falls back to ANTHROPIC_API_KEY. Used as a fallback for anthropic_agent when WIF is not configured.",
+				Description: "Anthropic workspace API key (sk-ant-api03-...). Used as a fallback for anthropic_agent when WIF is not configured.",
 			},
 			"federation_rule_id": schema.StringAttribute{
 				Optional:    true,
-				Description: "Federation rule ID (fdrl_...). Falls back to ANTHROPIC_FEDERATION_RULE_ID. Required for anthropic_agent, anthropic_environment, anthropic_vault, anthropic_vault_credential.",
+				Description: "Federation rule ID (fdrl_...). Required for anthropic_agent, anthropic_environment, anthropic_vault, anthropic_vault_credential when using WIF.",
 			},
 			"organization_id": schema.StringAttribute{
 				Optional:    true,
-				Description: "Anthropic organization UUID. Falls back to ANTHROPIC_ORGANIZATION_ID. Required for anthropic_agent, anthropic_environment, anthropic_vault, anthropic_vault_credential.",
+				Description: "Anthropic organization UUID. Required for anthropic_agent, anthropic_environment, anthropic_vault, anthropic_vault_credential when using WIF.",
 			},
 			"service_account_id": schema.StringAttribute{
 				Optional:    true,
-				Description: "Service account ID (svac_...). Falls back to ANTHROPIC_SERVICE_ACCOUNT_ID. Required for anthropic_agent, anthropic_environment, anthropic_vault, anthropic_vault_credential.",
+				Description: "Service account ID (svac_...). Required for anthropic_agent, anthropic_environment, anthropic_vault, anthropic_vault_credential when using WIF.",
 			},
 		},
 	}
@@ -77,11 +76,11 @@ func (p *anthropicProvider) Configure(ctx context.Context, req provider.Configur
 		return
 	}
 
-	adminKey := firstNonEmpty(cfg.AdminAPIKey.ValueString(), os.Getenv("ANTHROPIC_ADMIN_API_KEY"))
-	workspaceAPIKey := firstNonEmpty(cfg.WorkspaceAPIKey.ValueString(), os.Getenv("ANTHROPIC_API_KEY"))
-	ruleID := firstNonEmpty(cfg.FederationRuleID.ValueString(), os.Getenv("ANTHROPIC_FEDERATION_RULE_ID"))
-	orgID := firstNonEmpty(cfg.OrganizationID.ValueString(), os.Getenv("ANTHROPIC_ORGANIZATION_ID"))
-	svcID := firstNonEmpty(cfg.ServiceAccountID.ValueString(), os.Getenv("ANTHROPIC_SERVICE_ACCOUNT_ID"))
+	adminKey := cfg.AdminAPIKey.ValueString()
+	workspaceAPIKey := cfg.WorkspaceAPIKey.ValueString()
+	ruleID := cfg.FederationRuleID.ValueString()
+	orgID := cfg.OrganizationID.ValueString()
+	svcID := cfg.ServiceAccountID.ValueString()
 
 	wifCfg, wifErr := auth.NewWIFConfig(ruleID, orgID, svcID)
 
@@ -102,12 +101,6 @@ func (p *anthropicProvider) Configure(ctx context.Context, req provider.Configur
 	}
 }
 
-func firstNonEmpty(a, b string) string {
-	if a != "" {
-		return a
-	}
-	return b
-}
 
 func (p *anthropicProvider) DataSources(_ context.Context) []func() datasource.DataSource {
 	return nil
