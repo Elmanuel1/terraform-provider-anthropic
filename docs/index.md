@@ -1,7 +1,7 @@
 ---
 page_title: "anthropic Provider - Elmanuel1/anthropic-managed-agents"
 description: |-
-  Terraform provider for managing Anthropic platform resources. Supports Admin API key and Workload Identity Federation (WIF) authentication.
+  Terraform provider for managing Anthropic platform resources. Supports Admin API key, Workload Identity Federation (WIF), and workspace API key authentication.
 ---
 
 # anthropic Provider
