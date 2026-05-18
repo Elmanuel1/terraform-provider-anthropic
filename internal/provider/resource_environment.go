@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Elmanuel1/terraform-provider-anthropic/internal/auth"
 	"github.com/Elmanuel1/terraform-provider-anthropic/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -101,6 +100,7 @@ func NewWIFEnvironmentResource() resource.Resource {
 
 var _ resource.Resource = &WIFEnvironmentResource{}
 var _ resource.ResourceWithImportState = &WIFEnvironmentResource{}
+var _ resource.ResourceWithModifyPlan = &WIFEnvironmentResource{}
 
 func (r *WIFEnvironmentResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_environment"
@@ -115,9 +115,9 @@ func (r *WIFEnvironmentResource) Schema(_ context.Context, _ resource.SchemaRequ
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"workspace_id": schema.StringAttribute{
-				Required:      true,
+				Optional:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   "ID of the workspace this environment belongs to.",
+				Description:   "ID of the workspace this environment belongs to. Required when using WIF authentication. Not needed when using workspace_api_key.",
 			},
 			"name": schema.StringAttribute{
 				Required: true,
@@ -224,21 +224,11 @@ func (r *WIFEnvironmentResource) buildBody(ctx context.Context, data WIFEnvironm
 	return body
 }
 
-func (r *WIFEnvironmentResource) creds(workspaceID string) auth.WIFBearer {
-	return auth.WIFBearer{Config: r.data.wif, WorkspaceID: workspaceID}
-}
-
-func (r *WIFEnvironmentResource) requireWIF(diags interface{ AddError(string, string) }) bool {
-	if r.data == nil || r.data.wif == nil {
-		if r.data != nil && r.data.wifErr != nil {
-			diags.AddError("Invalid WIF configuration", r.data.wifErr.Error())
-		} else {
-			diags.AddError("Missing WIF configuration",
-				"Set federation_rule_id, organization_id, service_account_id in the provider block (or via ANTHROPIC_FEDERATION_RULE_ID, ANTHROPIC_ORGANIZATION_ID, ANTHROPIC_SERVICE_ACCOUNT_ID) and ensure TFC_WORKLOAD_IDENTITY_TOKEN_ANTHROPIC is injected.")
-		}
-		return false
+func (r *WIFEnvironmentResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	if req.Plan.Raw.IsNull() {
+		return
 	}
-	return true
+	validateWorkspaceCredentials(r.data, "anthropic_environment", &resp.Diagnostics)
 }
 
 func (r *WIFEnvironmentResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -247,12 +237,11 @@ func (r *WIFEnvironmentResource) Create(ctx context.Context, req resource.Create
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	if !r.requireWIF(&resp.Diagnostics) {
+	creds := resolveWorkspaceCredentials(ctx, r.data, "anthropic_environment", data.WorkspaceId.ValueString(), &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	c := client.NewEnvironmentClient(r.creds(data.WorkspaceId.ValueString()))
-	env, err := c.Create(ctx, r.buildBody(ctx, data))
+	env, err := client.NewEnvironmentClient(creds).Create(ctx, r.buildBody(ctx, data))
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to create environment: %s", err))
 		return
@@ -267,12 +256,11 @@ func (r *WIFEnvironmentResource) Read(ctx context.Context, req resource.ReadRequ
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	if !r.requireWIF(&resp.Diagnostics) {
+	creds := resolveWorkspaceCredentials(ctx, r.data, "anthropic_environment", data.WorkspaceId.ValueString(), &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	c := client.NewEnvironmentClient(r.creds(data.WorkspaceId.ValueString()))
-	env, err := c.Read(ctx, data.Id.ValueString())
+	env, err := client.NewEnvironmentClient(creds).Read(ctx, data.Id.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read environment: %s", err))
 		return
@@ -291,12 +279,11 @@ func (r *WIFEnvironmentResource) Update(ctx context.Context, req resource.Update
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	if !r.requireWIF(&resp.Diagnostics) {
+	creds := resolveWorkspaceCredentials(ctx, r.data, "anthropic_environment", data.WorkspaceId.ValueString(), &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	c := client.NewEnvironmentClient(r.creds(data.WorkspaceId.ValueString()))
-	env, err := c.Update(ctx, data.Id.ValueString(), r.buildBody(ctx, data))
+	env, err := client.NewEnvironmentClient(creds).Update(ctx, data.Id.ValueString(), r.buildBody(ctx, data))
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to update environment: %s", err))
 		return
@@ -311,11 +298,11 @@ func (r *WIFEnvironmentResource) Delete(ctx context.Context, req resource.Delete
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	if !r.requireWIF(&resp.Diagnostics) {
+	creds := resolveWorkspaceCredentials(ctx, r.data, "anthropic_environment", data.WorkspaceId.ValueString(), &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	c := client.NewEnvironmentClient(r.creds(data.WorkspaceId.ValueString()))
+	c := client.NewEnvironmentClient(creds)
 	if data.ForceDelete.ValueBool() {
 		if err := c.Delete(ctx, data.Id.ValueString()); err != nil {
 			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete environment: %s", err))
@@ -327,12 +314,26 @@ func (r *WIFEnvironmentResource) Delete(ctx context.Context, req resource.Delete
 	}
 }
 
+// ImportState supports two formats:
+//   - workspace_id/environment_id  (WIF path)
+//   - environment_id               (workspace_api_key path)
 func (r *WIFEnvironmentResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	parts := strings.SplitN(req.ID, "/", 2)
-	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		resp.Diagnostics.AddError("Invalid import ID", "Expected format: workspace_id/environment_id")
-		return
+	switch len(parts) {
+	case 2:
+		if parts[0] == "" || parts[1] == "" {
+			resp.Diagnostics.AddError("Invalid import ID", "Expected format: workspace_id/environment_id or environment_id")
+			return
+		}
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("workspace_id"), parts[0])...)
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), parts[1])...)
+	case 1:
+		if parts[0] == "" {
+			resp.Diagnostics.AddError("Invalid import ID", "environment_id must not be empty")
+			return
+		}
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), parts[0])...)
+	default:
+		resp.Diagnostics.AddError("Invalid import ID", "Expected format: workspace_id/environment_id or environment_id")
 	}
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("workspace_id"), parts[0])...)
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), parts[1])...)
 }

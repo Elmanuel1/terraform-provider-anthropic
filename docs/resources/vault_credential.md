@@ -11,17 +11,46 @@ Manages a credential inside an Anthropic vault. Credentials provide MCP server a
 
 Secret fields (`token`, `access_token`, `refresh_token`, `client_secret`) are write-only: they are sent to the API on create/update but never stored in Terraform state and never returned by reads.
 
-Authenticates via WIF bearer token scoped to the `workspace_id`.
+Supports two authentication modes, controlled by what is set in the **provider block**:
+
+| Mode | Provider attributes required | `workspace_id` |
+|---|---|---|
+| WIF | `federation_rule_id`, `organization_id`, `service_account_id` | Required |
+| Workspace API key | `workspace_api_key` | Not needed |
+
+When both are configured, WIF takes precedence.
 
 On destroy the credential is archived by default. Set `force_delete = true` to permanently delete it.
 
 ## Example Usage
 
-### Static bearer token
+### Static bearer token (WIF)
 
 ```terraform
+provider "anthropic" {
+  federation_rule_id = var.anthropic_federation_rule_id
+  organization_id    = var.anthropic_organization_id
+  service_account_id = var.anthropic_service_account_id
+}
+
 resource "anthropic_vault_credential" "example" {
   workspace_id   = anthropic_workspace.example.id
+  vault_id       = anthropic_vault.example.id
+  display_name   = "my-mcp-server-token"
+  auth_type      = "static_bearer"
+  mcp_server_url = "https://mcp.example.com"
+  token          = var.mcp_token
+}
+```
+
+### Static bearer token (workspace API key)
+
+```terraform
+provider "anthropic" {
+  workspace_api_key = var.anthropic_workspace_api_key
+}
+
+resource "anthropic_vault_credential" "example" {
   vault_id       = anthropic_vault.example.id
   display_name   = "my-mcp-server-token"
   auth_type      = "static_bearer"
@@ -54,9 +83,7 @@ resource "anthropic_vault_credential" "example" {
 
 ## Argument Reference
 
-This resource supports the following arguments:
-
-* `workspace_id` - (Required, Forces new resource) Workspace ID.
+* `workspace_id` - (Optional, Forces new resource) Workspace ID. Required when using WIF authentication.
 * `vault_id` - (Required, Forces new resource) Vault ID.
 * `auth_type` - (Required, Forces new resource) `static_bearer` or `mcp_oauth`.
 * `mcp_server_url` - (Required, Forces new resource) MCP server URL.
@@ -76,8 +103,6 @@ This resource supports the following arguments:
 
 ## Attribute Reference
 
-In addition to all arguments above, the following attributes are exported:
-
 * `id` - Credential ID (`vcrd_...`).
 * `created_at` - ISO 8601 creation timestamp.
 * `updated_at` - ISO 8601 last-updated timestamp.
@@ -85,10 +110,16 @@ In addition to all arguments above, the following attributes are exported:
 
 ## Import
 
-Import by `workspace_id/vault_id/credential_id`:
+WIF (workspace_id known):
 
 ```shell
 terraform import anthropic_vault_credential.example wrks_xxx/vlt_yyy/vcrd_zzz
+```
+
+Workspace API key (workspace_id not needed):
+
+```shell
+terraform import anthropic_vault_credential.example vlt_yyy/vcrd_zzz
 ```
 
 ~> **Note:** Write-only fields (`token`, `access_token`, `refresh_token`, `client_secret`) cannot be recovered from state after import. Re-apply with the values set to restore them in the API.

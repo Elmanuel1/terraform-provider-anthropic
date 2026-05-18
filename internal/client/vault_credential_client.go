@@ -44,7 +44,7 @@ type VaultCredentialClient struct {
 	httpClient *http.Client
 }
 
-func NewVaultCredentialClient(creds auth.WIFBearer) *VaultCredentialClient {
+func NewVaultCredentialClient(creds auth.Credentials) *VaultCredentialClient {
 	return &VaultCredentialClient{creds: creds, httpClient: defaultHTTPClient}
 }
 

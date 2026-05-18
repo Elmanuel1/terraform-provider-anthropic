@@ -9,7 +9,7 @@ description: |-
 
 Manages an Anthropic memory store. Memory stores provide persistent storage for agents across sessions, enabling long-term context and knowledge retention.
 
-Authenticates with the Anthropic Admin API key (`ANTHROPIC_ADMIN_API_KEY`).
+Authenticates with the `admin_api_key` set in the provider block.
 
 On destroy the memory store is archived by default. Set `force_delete = true` to permanently delete it.
 
