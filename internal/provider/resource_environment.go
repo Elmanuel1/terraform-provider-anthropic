@@ -228,7 +228,19 @@ func (r *WIFEnvironmentResource) ModifyPlan(ctx context.Context, req resource.Mo
 	if req.Plan.Raw.IsNull() {
 		return
 	}
-	validateWorkspaceCredentials(r.data, "anthropic_environment", &resp.Diagnostics)
+	var plan WIFEnvironmentModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	// workspace_id may be unknown at plan time (referencing a not-yet-created workspace).
+	// Pass empty string in that case so WIF-without-workspace_id is only flagged when
+	// workspace_id is definitively absent.
+	workspaceID := ""
+	if !plan.WorkspaceId.IsUnknown() {
+		workspaceID = plan.WorkspaceId.ValueString()
+	}
+	validateWorkspaceCredentials(r.data, "anthropic_environment", workspaceID, &resp.Diagnostics)
 }
 
 func (r *WIFEnvironmentResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -318,7 +330,7 @@ func (r *WIFEnvironmentResource) Delete(ctx context.Context, req resource.Delete
 //   - workspace_id/environment_id  (WIF path)
 //   - environment_id               (workspace_api_key path)
 func (r *WIFEnvironmentResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	parts := strings.SplitN(req.ID, "/", 2)
+	parts := strings.Split(req.ID, "/")
 	switch len(parts) {
 	case 2:
 		if parts[0] == "" || parts[1] == "" {

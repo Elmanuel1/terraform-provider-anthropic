@@ -49,7 +49,7 @@ resource "anthropic_environment" "example" {
 }
 ```
 
-### Limited networking with packages
+### Limited networking with packages (WIF)
 
 ```terraform
 resource "anthropic_environment" "example" {

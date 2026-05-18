@@ -115,7 +115,16 @@ func (r *WIFVaultResource) ModifyPlan(ctx context.Context, req resource.ModifyPl
 	if req.Plan.Raw.IsNull() {
 		return
 	}
-	validateWorkspaceCredentials(r.data, "anthropic_vault", &resp.Diagnostics)
+	var plan WIFVaultModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	workspaceID := ""
+	if !plan.WorkspaceId.IsUnknown() {
+		workspaceID = plan.WorkspaceId.ValueString()
+	}
+	validateWorkspaceCredentials(r.data, "anthropic_vault", workspaceID, &resp.Diagnostics)
 }
 
 func (r *WIFVaultResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -205,7 +214,7 @@ func (r *WIFVaultResource) Delete(ctx context.Context, req resource.DeleteReques
 //   - workspace_id/vault_id  (WIF path)
 //   - vault_id               (workspace_api_key path)
 func (r *WIFVaultResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	parts := strings.SplitN(req.ID, "/", 2)
+	parts := strings.Split(req.ID, "/")
 	switch len(parts) {
 	case 2:
 		if parts[0] == "" || parts[1] == "" {

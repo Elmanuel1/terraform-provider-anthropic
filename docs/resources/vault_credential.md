@@ -59,7 +59,7 @@ resource "anthropic_vault_credential" "example" {
 }
 ```
 
-### OAuth with refresh
+### OAuth with refresh (WIF)
 
 ```terraform
 resource "anthropic_vault_credential" "example" {
