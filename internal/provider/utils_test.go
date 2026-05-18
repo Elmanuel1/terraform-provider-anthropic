@@ -127,7 +127,7 @@ func TestWIFEnvironmentModel_Fill_LimitedNetworking(t *testing.T) {
 }
 
 func TestBuildAgentBody_MinimalFields(t *testing.T) {
-	data := agentCoreModel{
+	data := AgentCoreModel{
 		Name:       types.StringValue("my-agent"),
 		Model:      types.StringValue("claude-sonnet-4-6"),
 		ModelSpeed: types.StringValue("standard"),
@@ -163,7 +163,7 @@ func TestBuildAgentBody_MinimalFields(t *testing.T) {
 }
 
 func TestBuildAgentBody_AllFields(t *testing.T) {
-	data := agentCoreModel{
+	data := AgentCoreModel{
 		Name:        types.StringValue("my-agent"),
 		Model:       types.StringValue("claude-opus-4-7"),
 		ModelSpeed:  types.StringValue("fast"),
@@ -190,7 +190,7 @@ func TestBuildAgentBody_AllFields(t *testing.T) {
 }
 
 func TestBuildAgentBody_EmptyToolsArrayIncluded(t *testing.T) {
-	data := agentCoreModel{
+	data := AgentCoreModel{
 		Name:       types.StringValue("a"),
 		Model:      types.StringValue("claude-sonnet-4-6"),
 		ModelSpeed: types.StringValue("standard"),
@@ -215,7 +215,7 @@ func TestBuildAgentBody_EmptyToolsArrayIncluded(t *testing.T) {
 
 func TestAgentCoreModel_Fill(t *testing.T) {
 	desc := "an agent"
-	var m agentCoreModel
+	var m AgentCoreModel
 	m.fill(client.AgentResponse{
 		ID:          "agent_1",
 		Name:        "my-agent",

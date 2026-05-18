@@ -14,7 +14,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-type agentCoreModel struct {
+type AgentCoreModel struct {
 	Id          types.String `tfsdk:"id"`
 	Name        types.String `tfsdk:"name"`
 	Model       types.String `tfsdk:"model"`
@@ -32,7 +32,7 @@ type agentCoreModel struct {
 	ArchivedAt  types.String `tfsdk:"archived_at"`
 }
 
-func (m *agentCoreModel) fill(a client.AgentResponse) {
+func (m *AgentCoreModel) fill(a client.AgentResponse) {
 	m.Id = types.StringValue(a.ID)
 	m.Name = types.StringValue(a.Name)
 	m.Model = types.StringValue(a.Model.ID)
@@ -54,7 +54,7 @@ func (m *agentCoreModel) fill(a client.AgentResponse) {
 	m.Metadata = fillMetadata(a.Metadata)
 }
 
-func buildAgentBody(data agentCoreModel) (map[string]any, error) {
+func buildAgentBody(data AgentCoreModel) (map[string]any, error) {
 	body := map[string]any{
 		"name": data.Name.ValueString(),
 		"model": map[string]string{
@@ -169,7 +169,7 @@ func agentCoreSchemaAttrs() map[string]schema.Attribute {
 	}
 }
 
-func agentUserFieldsChanged(plan, state agentCoreModel) bool {
+func agentUserFieldsChanged(plan, state AgentCoreModel) bool {
 	return !plan.Name.Equal(state.Name) ||
 		!plan.System.Equal(state.System) ||
 		!plan.Description.Equal(state.Description) ||

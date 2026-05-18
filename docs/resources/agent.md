@@ -7,20 +7,53 @@ description: |-
 
 # Resource: anthropic_agent
 
-Manages an Anthropic agent. Authenticates via WIF bearer token scoped to the `workspace_id`. Requires `federation_rule_id`, `organization_id`, and `service_account_id` in the provider block (or the corresponding environment variables).
+Manages an Anthropic agent.
 
-For Terraform Cloud setup and debugging token exchange failures, see the [Authentication guide](../guides/authentication.md).
+Supports two authentication modes, controlled by what is set in the **provider block**:
+
+| Mode | Provider attributes required | `workspace_id` |
+|---|---|---|
+| WIF | `federation_rule_id`, `organization_id`, `service_account_id` | Required |
+| Workspace API key | `workspace_api_key` | Not needed |
+
+When both are configured, WIF takes precedence.
+
+For Terraform Cloud WIF setup and debugging token exchange failures, see the [Authentication guide](../guides/authentication.md).
 
 ## Example Usage
 
-### Minimal agent
+### WIF authentication
 
 ```terraform
+provider "anthropic" {
+  federation_rule_id = var.anthropic_federation_rule_id
+  organization_id    = var.anthropic_organization_id
+  service_account_id = var.anthropic_service_account_id
+}
+
+resource "anthropic_workspace" "example" {
+  name = "my-workspace"
+}
+
 resource "anthropic_agent" "example" {
   workspace_id = anthropic_workspace.example.id
   name         = "my-agent"
   model        = "claude-sonnet-4-6"
   system       = "You are a helpful assistant."
+}
+```
+
+### Workspace API key authentication
+
+```terraform
+provider "anthropic" {
+  workspace_api_key = var.anthropic_workspace_api_key
+}
+
+resource "anthropic_agent" "example" {
+  name   = "my-agent"
+  model  = "claude-sonnet-4-6"
+  system = "You are a helpful assistant."
 }
 ```
 
@@ -94,9 +127,7 @@ resource "anthropic_agent" "coordinator" {
 
 ## Argument Reference
 
-This resource supports the following arguments:
-
-* `workspace_id` - (Required, Forces new resource) Workspace ID.
+* `workspace_id` - (Optional, Forces new resource) Workspace ID. Required when using WIF authentication.
 * `name` - (Required) Agent name.
 * `model` - (Required) Model ID, e.g. `claude-opus-4-7` or `claude-sonnet-4-6`.
 * `model_speed` - (Optional) Inference speed: `standard` (default) or `fast`.
@@ -110,8 +141,6 @@ This resource supports the following arguments:
 
 ## Attribute Reference
 
-In addition to all arguments above, the following attributes are exported:
-
 * `id` - Agent ID (`agt_...`).
 * `version` - Optimistic-lock version, incremented on each update.
 * `created_at` - ISO 8601 creation timestamp.
@@ -120,8 +149,14 @@ In addition to all arguments above, the following attributes are exported:
 
 ## Import
 
-Import by `workspace_id/agent_id`:
+WIF (workspace_id known):
 
 ```shell
 terraform import anthropic_agent.example wrks_xxx/agt_yyy
+```
+
+Workspace API key (workspace_id not needed):
+
+```shell
+terraform import anthropic_agent.example agt_yyy
 ```

@@ -45,19 +45,19 @@ func NewWIFConfig(ruleID, orgID, svcID string) (*WIFConfig, error) {
 
 	var missing []string
 	if ruleID == "" {
-		missing = append(missing, "federation_rule_id (or ANTHROPIC_FEDERATION_RULE_ID)")
+		missing = append(missing, "federation_rule_id")
 	}
 	if orgID == "" {
-		missing = append(missing, "organization_id (or ANTHROPIC_ORGANIZATION_ID)")
+		missing = append(missing, "organization_id")
 	}
 	if svcID == "" {
-		missing = append(missing, "service_account_id (or ANTHROPIC_SERVICE_ACCOUNT_ID)")
+		missing = append(missing, "service_account_id")
 	}
 	if jwt == "" {
 		missing = append(missing, "TFC_WORKLOAD_IDENTITY_TOKEN_ANTHROPIC (or TFC_WORKLOAD_IDENTITY_TOKEN)")
 	}
 	if len(missing) > 0 {
-		return nil, fmt.Errorf("incomplete WIF configuration, missing: %v", missing)
+		return nil, fmt.Errorf("incomplete WIF configuration, missing: %s", strings.Join(missing, ", "))
 	}
 
 	return &WIFConfig{
@@ -68,44 +68,6 @@ func NewWIFConfig(ruleID, orgID, svcID string) (*WIFConfig, error) {
 	}, nil
 }
 
-func ReadWIFConfig() (*WIFConfig, error) {
-	rule := os.Getenv("ANTHROPIC_FEDERATION_RULE_ID")
-	org := os.Getenv("ANTHROPIC_ORGANIZATION_ID")
-	svc := os.Getenv("ANTHROPIC_SERVICE_ACCOUNT_ID")
-	jwt := os.Getenv("TFC_WORKLOAD_IDENTITY_TOKEN_ANTHROPIC")
-	if jwt == "" {
-		jwt = os.Getenv("TFC_WORKLOAD_IDENTITY_TOKEN")
-	}
-
-	// Not configured — no WIF
-	if rule == "" && org == "" && svc == "" && jwt == "" {
-		return nil, nil
-	}
-
-	var missing []string
-	if rule == "" {
-		missing = append(missing, "ANTHROPIC_FEDERATION_RULE_ID")
-	}
-	if org == "" {
-		missing = append(missing, "ANTHROPIC_ORGANIZATION_ID")
-	}
-	if svc == "" {
-		missing = append(missing, "ANTHROPIC_SERVICE_ACCOUNT_ID")
-	}
-	if jwt == "" {
-		missing = append(missing, "TFC_WORKLOAD_IDENTITY_TOKEN_ANTHROPIC (or TFC_WORKLOAD_IDENTITY_TOKEN)")
-	}
-	if len(missing) > 0 {
-		return nil, fmt.Errorf("incomplete WIF configuration, missing: %v", missing)
-	}
-
-	return &WIFConfig{
-		FederationRuleID: rule,
-		OrganizationID:   org,
-		ServiceAccountID: svc,
-		jwt:              jwt,
-	}, nil
-}
 
 func jwtClaims(token string) (sub, aud string) {
 	parts := strings.Split(token, ".")

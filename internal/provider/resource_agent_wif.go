@@ -18,7 +18,7 @@ import (
 
 type WIFAgentModel struct {
 	WorkspaceId types.String `tfsdk:"workspace_id"`
-	agentCoreModel
+	AgentCoreModel
 }
 
 type WIFAgentResource struct {
@@ -63,7 +63,9 @@ func (r *WIFAgentResource) ModifyPlan(ctx context.Context, req resource.ModifyPl
 	}
 
 	// Validate that at least one auth method will be available at apply time.
-	wifConfigured := r.data != nil && r.data.wif != nil && !plan.WorkspaceId.IsNull() && !plan.WorkspaceId.IsUnknown()
+	// workspace_id may be unknown at plan time (e.g. referencing a not-yet-created workspace),
+	// so WIF is considered configured based on the WIF credentials alone, not workspace_id.
+	wifConfigured := r.data != nil && r.data.wif != nil
 	apiKeyConfigured := r.data != nil && r.data.workspaceAPIKey != ""
 	if r.data != nil && !wifConfigured && !apiKeyConfigured {
 		resp.Diagnostics.AddError(
@@ -85,7 +87,7 @@ func (r *WIFAgentResource) ModifyPlan(ctx context.Context, req resource.ModifyPl
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	if !agentUserFieldsChanged(plan.agentCoreModel, state.agentCoreModel) {
+	if !agentUserFieldsChanged(plan.AgentCoreModel, state.AgentCoreModel) {
 		return
 	}
 	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("version"), types.Int64Unknown())...)
@@ -152,7 +154,7 @@ func (r *WIFAgentResource) Create(ctx context.Context, req resource.CreateReques
 		return
 	}
 
-	body, err := buildAgentBody(data.agentCoreModel)
+	body, err := buildAgentBody(data.AgentCoreModel)
 	if err != nil {
 		resp.Diagnostics.AddError("Invalid agent configuration", err.Error())
 		return
@@ -162,7 +164,7 @@ func (r *WIFAgentResource) Create(ctx context.Context, req resource.CreateReques
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to create agent: %s", err))
 		return
 	}
-	data.agentCoreModel.fill(*agent)
+	data.AgentCoreModel.fill(*agent)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -187,7 +189,7 @@ func (r *WIFAgentResource) Read(ctx context.Context, req resource.ReadRequest, r
 		resp.State.RemoveResource(ctx)
 		return
 	}
-	data.agentCoreModel.fill(*agent)
+	data.AgentCoreModel.fill(*agent)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -208,7 +210,7 @@ func (r *WIFAgentResource) Update(ctx context.Context, req resource.UpdateReques
 		return
 	}
 
-	body, err := buildAgentBody(data.agentCoreModel)
+	body, err := buildAgentBody(data.AgentCoreModel)
 	if err != nil {
 		resp.Diagnostics.AddError("Invalid agent configuration", err.Error())
 		return
@@ -220,7 +222,7 @@ func (r *WIFAgentResource) Update(ctx context.Context, req resource.UpdateReques
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to update agent: %s", err))
 		return
 	}
-	data.agentCoreModel.fill(*agent)
+	data.AgentCoreModel.fill(*agent)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
