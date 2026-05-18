@@ -52,7 +52,7 @@ func (p *anthropicProvider) Schema(_ context.Context, _ provider.SchemaRequest, 
 			"workspace_api_key": schema.StringAttribute{
 				Optional:    true,
 				Sensitive:   true,
-				Description: "Anthropic workspace API key (sk-ant-api03-...). Falls back to ANTHROPIC_WORKSPACE_API_KEY. Used as a fallback for anthropic_agent when WIF is not configured.",
+				Description: "Anthropic workspace API key (sk-ant-api03-...). Falls back to ANTHROPIC_API_KEY. Used as a fallback for anthropic_agent when WIF is not configured.",
 			},
 			"federation_rule_id": schema.StringAttribute{
 				Optional:    true,
@@ -78,7 +78,7 @@ func (p *anthropicProvider) Configure(ctx context.Context, req provider.Configur
 	}
 
 	adminKey := firstNonEmpty(cfg.AdminAPIKey.ValueString(), os.Getenv("ANTHROPIC_ADMIN_API_KEY"))
-	workspaceAPIKey := firstNonEmpty(cfg.WorkspaceAPIKey.ValueString(), os.Getenv("ANTHROPIC_WORKSPACE_API_KEY"))
+	workspaceAPIKey := firstNonEmpty(cfg.WorkspaceAPIKey.ValueString(), os.Getenv("ANTHROPIC_API_KEY"))
 	ruleID := firstNonEmpty(cfg.FederationRuleID.ValueString(), os.Getenv("ANTHROPIC_FEDERATION_RULE_ID"))
 	orgID := firstNonEmpty(cfg.OrganizationID.ValueString(), os.Getenv("ANTHROPIC_ORGANIZATION_ID"))
 	svcID := firstNonEmpty(cfg.ServiceAccountID.ValueString(), os.Getenv("ANTHROPIC_SERVICE_ACCOUNT_ID"))
