@@ -97,13 +97,13 @@ func (r *WIFAgentResource) resolveCredentials(ctx context.Context, workspaceID s
 		}
 	}
 
-	if r.data.apiKey != "" {
+	if r.data.workspaceAPIKey != "" {
 		if wifReady {
 			tflog.Warn(ctx, "anthropic_agent: WIF config incomplete, falling back to api_key", map[string]any{"workspace_id": workspaceID})
 		} else {
 			tflog.Debug(ctx, "anthropic_agent: using workspace API key authentication")
 		}
-		return auth.WorkspaceAPIKey{Key: r.data.apiKey}
+		return auth.WorkspaceAPIKey{Key: r.data.workspaceAPIKey}
 	}
 
 	// Neither auth method is available — report a clear error.
@@ -113,11 +113,11 @@ func (r *WIFAgentResource) resolveCredentials(ctx context.Context, workspaceID s
 		diags.AddError("Missing credentials",
 			"workspace_id is set but WIF is not configured and no api_key is available. "+
 				"Set federation_rule_id, organization_id, service_account_id (or ANTHROPIC_FEDERATION_RULE_ID, ANTHROPIC_ORGANIZATION_ID, ANTHROPIC_SERVICE_ACCOUNT_ID) "+
-				"or provide api_key (or ANTHROPIC_API_KEY).")
+				"or provide workspace_api_key (or ANTHROPIC_WORKSPACE_API_KEY).")
 	} else {
 		diags.AddError("Missing credentials",
 			"No authentication method is configured for anthropic_agent. "+
-				"Provide api_key (or ANTHROPIC_API_KEY), or set workspace_id together with WIF credentials.")
+				"Provide workspace_api_key (or ANTHROPIC_WORKSPACE_API_KEY), or set workspace_id together with WIF credentials.")
 	}
 	return nil
 }

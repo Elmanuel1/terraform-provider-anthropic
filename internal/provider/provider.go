@@ -21,17 +21,17 @@ type anthropicProvider struct{}
 
 type providerConfig struct {
 	AdminAPIKey      types.String `tfsdk:"admin_api_key"`
-	APIKey           types.String `tfsdk:"api_key"`
+	WorkspaceAPIKey  types.String `tfsdk:"workspace_api_key"`
 	FederationRuleID types.String `tfsdk:"federation_rule_id"`
 	OrganizationID   types.String `tfsdk:"organization_id"`
 	ServiceAccountID types.String `tfsdk:"service_account_id"`
 }
 
 type providerData struct {
-	adminKey string
-	apiKey   string
-	wif      *auth.WIFConfig
-	wifErr   error
+	adminKey        string
+	workspaceAPIKey string
+	wif             *auth.WIFConfig
+	wifErr          error
 }
 
 func (p *anthropicProvider) Metadata(_ context.Context, _ provider.MetadataRequest, resp *provider.MetadataResponse) {
@@ -49,10 +49,10 @@ func (p *anthropicProvider) Schema(_ context.Context, _ provider.SchemaRequest, 
 				Sensitive:   true,
 				Description: "Anthropic Admin API key (sk-ant-admin-...). Falls back to ANTHROPIC_ADMIN_API_KEY. Required for anthropic_workspace and anthropic_memory_store.",
 			},
-			"api_key": schema.StringAttribute{
+			"workspace_api_key": schema.StringAttribute{
 				Optional:    true,
 				Sensitive:   true,
-				Description: "Anthropic workspace API key (sk-ant-api03-...). Falls back to ANTHROPIC_API_KEY. Used as a fallback for anthropic_agent when WIF is not configured.",
+				Description: "Anthropic workspace API key (sk-ant-api03-...). Falls back to ANTHROPIC_WORKSPACE_API_KEY. Used as a fallback for anthropic_agent when WIF is not configured.",
 			},
 			"federation_rule_id": schema.StringAttribute{
 				Optional:    true,
@@ -78,7 +78,7 @@ func (p *anthropicProvider) Configure(ctx context.Context, req provider.Configur
 	}
 
 	adminKey := firstNonEmpty(cfg.AdminAPIKey.ValueString(), os.Getenv("ANTHROPIC_ADMIN_API_KEY"))
-	apiKey := firstNonEmpty(cfg.APIKey.ValueString(), os.Getenv("ANTHROPIC_API_KEY"))
+	workspaceAPIKey := firstNonEmpty(cfg.WorkspaceAPIKey.ValueString(), os.Getenv("ANTHROPIC_WORKSPACE_API_KEY"))
 	ruleID := firstNonEmpty(cfg.FederationRuleID.ValueString(), os.Getenv("ANTHROPIC_FEDERATION_RULE_ID"))
 	orgID := firstNonEmpty(cfg.OrganizationID.ValueString(), os.Getenv("ANTHROPIC_ORGANIZATION_ID"))
 	svcID := firstNonEmpty(cfg.ServiceAccountID.ValueString(), os.Getenv("ANTHROPIC_SERVICE_ACCOUNT_ID"))
@@ -86,10 +86,10 @@ func (p *anthropicProvider) Configure(ctx context.Context, req provider.Configur
 	wifCfg, wifErr := auth.NewWIFConfig(ruleID, orgID, svcID)
 
 	data := &providerData{
-		adminKey: adminKey,
-		apiKey:   apiKey,
-		wif:      wifCfg,
-		wifErr:   wifErr,
+		adminKey:        adminKey,
+		workspaceAPIKey: workspaceAPIKey,
+		wif:             wifCfg,
+		wifErr:          wifErr,
 	}
 	resp.DataSourceData = data
 	resp.ResourceData = data
