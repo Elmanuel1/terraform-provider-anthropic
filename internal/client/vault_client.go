@@ -25,7 +25,7 @@ type VaultClient struct {
 	httpClient *http.Client
 }
 
-func NewVaultClient(creds auth.WIFBearer) *VaultClient {
+func NewVaultClient(creds auth.Credentials) *VaultClient {
 	return &VaultClient{creds: creds, httpClient: defaultHTTPClient}
 }
 

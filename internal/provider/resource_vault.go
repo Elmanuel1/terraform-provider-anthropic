@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Elmanuel1/terraform-provider-anthropic/internal/auth"
 	"github.com/Elmanuel1/terraform-provider-anthropic/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -56,6 +55,7 @@ func NewWIFVaultResource() resource.Resource {
 
 var _ resource.Resource = &WIFVaultResource{}
 var _ resource.ResourceWithImportState = &WIFVaultResource{}
+var _ resource.ResourceWithModifyPlan = &WIFVaultResource{}
 
 func (r *WIFVaultResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_vault"
@@ -70,9 +70,9 @@ func (r *WIFVaultResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"workspace_id": schema.StringAttribute{
-				Required:      true,
+				Optional:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   "ID of the workspace this vault belongs to.",
+				Description:   "ID of the workspace this vault belongs to. Required when using WIF authentication. Not needed when using workspace_api_key.",
 			},
 			"display_name": schema.StringAttribute{
 				Required: true,
@@ -111,17 +111,20 @@ func (r *WIFVaultResource) Configure(_ context.Context, req resource.ConfigureRe
 	r.data = data
 }
 
-func (r *WIFVaultResource) requireWIF(diags interface{ AddError(string, string) }) bool {
-	if r.data == nil || r.data.wif == nil {
-		if r.data != nil && r.data.wifErr != nil {
-			diags.AddError("Invalid WIF configuration", r.data.wifErr.Error())
-		} else {
-			diags.AddError("Missing WIF configuration",
-				"Set federation_rule_id, organization_id, service_account_id in the provider block (or via ANTHROPIC_FEDERATION_RULE_ID, ANTHROPIC_ORGANIZATION_ID, ANTHROPIC_SERVICE_ACCOUNT_ID) and ensure TFC_WORKLOAD_IDENTITY_TOKEN_ANTHROPIC is injected.")
-		}
-		return false
+func (r *WIFVaultResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	if req.Plan.Raw.IsNull() {
+		return
 	}
-	return true
+	var plan WIFVaultModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	workspaceID := ""
+	if !plan.WorkspaceId.IsNull() && !plan.WorkspaceId.IsUnknown() {
+		workspaceID = plan.WorkspaceId.ValueString()
+	}
+	validateWorkspaceCredentials(r.data, "anthropic_vault", workspaceID, plan.WorkspaceId.IsUnknown(), &resp.Diagnostics)
 }
 
 func (r *WIFVaultResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -130,12 +133,11 @@ func (r *WIFVaultResource) Create(ctx context.Context, req resource.CreateReques
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	if !r.requireWIF(&resp.Diagnostics) {
+	creds := resolveWorkspaceCredentials(ctx, r.data, "anthropic_vault", data.WorkspaceId.ValueString(), &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	c := client.NewVaultClient(auth.WIFBearer{Config: r.data.wif, WorkspaceID: data.WorkspaceId.ValueString()})
-	v, err := c.Create(ctx, buildVaultBody(data))
+	v, err := client.NewVaultClient(creds).Create(ctx, buildVaultBody(data))
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to create vault: %s", err))
 		return
@@ -150,12 +152,11 @@ func (r *WIFVaultResource) Read(ctx context.Context, req resource.ReadRequest, r
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	if !r.requireWIF(&resp.Diagnostics) {
+	creds := resolveWorkspaceCredentials(ctx, r.data, "anthropic_vault", data.WorkspaceId.ValueString(), &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	c := client.NewVaultClient(auth.WIFBearer{Config: r.data.wif, WorkspaceID: data.WorkspaceId.ValueString()})
-	v, err := c.Read(ctx, data.Id.ValueString())
+	v, err := client.NewVaultClient(creds).Read(ctx, data.Id.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read vault: %s", err))
 		return
@@ -174,12 +175,11 @@ func (r *WIFVaultResource) Update(ctx context.Context, req resource.UpdateReques
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	if !r.requireWIF(&resp.Diagnostics) {
+	creds := resolveWorkspaceCredentials(ctx, r.data, "anthropic_vault", data.WorkspaceId.ValueString(), &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	c := client.NewVaultClient(auth.WIFBearer{Config: r.data.wif, WorkspaceID: data.WorkspaceId.ValueString()})
-	v, err := c.Update(ctx, data.Id.ValueString(), buildVaultBody(data))
+	v, err := client.NewVaultClient(creds).Update(ctx, data.Id.ValueString(), buildVaultBody(data))
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to update vault: %s", err))
 		return
@@ -194,11 +194,11 @@ func (r *WIFVaultResource) Delete(ctx context.Context, req resource.DeleteReques
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	if !r.requireWIF(&resp.Diagnostics) {
+	creds := resolveWorkspaceCredentials(ctx, r.data, "anthropic_vault", data.WorkspaceId.ValueString(), &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	c := client.NewVaultClient(auth.WIFBearer{Config: r.data.wif, WorkspaceID: data.WorkspaceId.ValueString()})
+	c := client.NewVaultClient(creds)
 	if data.ForceDelete.ValueBool() {
 		if err := c.Delete(ctx, data.Id.ValueString()); err != nil {
 			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete vault: %s", err))
@@ -210,12 +210,26 @@ func (r *WIFVaultResource) Delete(ctx context.Context, req resource.DeleteReques
 	}
 }
 
+// ImportState supports two formats:
+//   - workspace_id/vault_id  (WIF path)
+//   - vault_id               (workspace_api_key path)
 func (r *WIFVaultResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	parts := strings.SplitN(req.ID, "/", 2)
-	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		resp.Diagnostics.AddError("Invalid import ID", "Expected format: workspace_id/vault_id")
-		return
+	parts := strings.Split(req.ID, "/")
+	switch len(parts) {
+	case 2:
+		if parts[0] == "" || parts[1] == "" {
+			resp.Diagnostics.AddError("Invalid import ID", "Expected format: workspace_id/vault_id or vault_id")
+			return
+		}
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("workspace_id"), parts[0])...)
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), parts[1])...)
+	case 1:
+		if parts[0] == "" {
+			resp.Diagnostics.AddError("Invalid import ID", "vault_id must not be empty")
+			return
+		}
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), parts[0])...)
+	default:
+		resp.Diagnostics.AddError("Invalid import ID", "Expected format: workspace_id/vault_id or vault_id")
 	}
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("workspace_id"), parts[0])...)
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), parts[1])...)
 }
