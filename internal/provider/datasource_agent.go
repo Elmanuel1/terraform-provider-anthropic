@@ -6,7 +6,7 @@ import (
 
 	"github.com/Elmanuel1/terraform-provider-anthropic/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
-	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	dsschema "github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
@@ -33,6 +33,27 @@ type AgentDataModel struct {
 	ArchivedAt  types.String `tfsdk:"archived_at"`
 }
 
+func (m *AgentDataModel) fill(a client.AgentResponse) {
+	var core AgentCoreModel
+	core.fill(a)
+	m.Id = core.Id
+	m.Name = core.Name
+	m.Model = core.Model
+	m.ModelSpeed = core.ModelSpeed
+	m.System = core.System
+	m.Description = core.Description
+	m.Tools = core.Tools
+	m.MCPServers = core.MCPServers
+	m.Skills = core.Skills
+	m.Multiagent = core.Multiagent
+	m.Metadata = core.Metadata
+	m.Version = core.Version
+	m.CreatedAt = core.CreatedAt
+	m.UpdatedAt = core.UpdatedAt
+	m.ArchivedAt = core.ArchivedAt
+	// WorkspaceId is caller-supplied; not present in AgentResponse — leave unchanged.
+}
+
 func NewAgentDataSource() datasource.DataSource {
 	return &AgentDataSource{}
 }
@@ -45,25 +66,27 @@ func (d *AgentDataSource) Metadata(_ context.Context, req datasource.MetadataReq
 }
 
 func (d *AgentDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
-	resp.Schema = schema.Schema{
+	// All fields mirror agentCoreSchemaAttrs() but use datasource/schema types
+	// (plan modifiers are not applicable to data sources) and id/workspace_id differ.
+	resp.Schema = dsschema.Schema{
 		Description: "Reads an existing Anthropic agent by ID.",
-		Attributes: map[string]schema.Attribute{
-			"id":           schema.StringAttribute{Required: true, Description: "Agent ID (agt_...)."},
-			"workspace_id": schema.StringAttribute{Optional: true, Description: "Workspace ID. Required when using WIF authentication."},
-			"name":         schema.StringAttribute{Computed: true},
-			"model":        schema.StringAttribute{Computed: true},
-			"model_speed":  schema.StringAttribute{Computed: true},
-			"system":       schema.StringAttribute{Computed: true},
-			"description":  schema.StringAttribute{Computed: true},
-			"tools":        schema.StringAttribute{Computed: true, Description: "JSON-encoded tools array."},
-			"mcp_servers":  schema.StringAttribute{Computed: true, Description: "JSON-encoded MCP servers array."},
-			"skills":       schema.StringAttribute{Computed: true, Description: "JSON-encoded skills array."},
-			"multiagent":   schema.StringAttribute{Computed: true, Description: "JSON-encoded multiagent config."},
-			"metadata":     schema.MapAttribute{Computed: true, ElementType: types.StringType},
-			"version":      schema.Int64Attribute{Computed: true},
-			"created_at":   schema.StringAttribute{Computed: true},
-			"updated_at":   schema.StringAttribute{Computed: true},
-			"archived_at":  schema.StringAttribute{Computed: true},
+		Attributes: map[string]dsschema.Attribute{
+			"id":           dsschema.StringAttribute{Required: true, Description: "Agent ID (agt_...)."},
+			"workspace_id": dsschema.StringAttribute{Optional: true, Description: "Workspace ID. Required when using WIF authentication."},
+			"name":         dsschema.StringAttribute{Computed: true},
+			"model":        dsschema.StringAttribute{Computed: true, Description: "Model ID, e.g. claude-opus-4-7 or claude-sonnet-4-6."},
+			"model_speed":  dsschema.StringAttribute{Computed: true, Description: "Inference speed: standard or fast."},
+			"system":       dsschema.StringAttribute{Computed: true},
+			"description":  dsschema.StringAttribute{Computed: true},
+			"tools":        dsschema.StringAttribute{Computed: true, Description: `JSON-encoded tools array. Example: [{"type":"agent_toolset_20260401"}]`},
+			"mcp_servers":  dsschema.StringAttribute{Computed: true, Description: `JSON-encoded MCP servers array. Example: [{"name":"my-server","type":"url","url":"https://..."}].`},
+			"skills":       dsschema.StringAttribute{Computed: true, Description: `JSON-encoded skills array. Example: [{"type":"anthropic","skill_id":"xlsx"}].`},
+			"multiagent":   dsschema.StringAttribute{Computed: true, Description: `JSON-encoded multiagent coordinator config. Example: {"type":"coordinator","agents":["agent_id_1","agent_id_2"]}.`},
+			"metadata":     dsschema.MapAttribute{Computed: true, ElementType: types.StringType, Description: "Arbitrary string key-value pairs attached to the agent."},
+			"version":      dsschema.Int64Attribute{Computed: true},
+			"created_at":   dsschema.StringAttribute{Computed: true},
+			"updated_at":   dsschema.StringAttribute{Computed: true},
+			"archived_at":  dsschema.StringAttribute{Computed: true},
 		},
 	}
 }
@@ -102,21 +125,6 @@ func (d *AgentDataSource) Read(ctx context.Context, req datasource.ReadRequest, 
 		return
 	}
 
-	var m AgentCoreModel
-	m.fill(*a)
-	data.Name = m.Name
-	data.Model = m.Model
-	data.ModelSpeed = m.ModelSpeed
-	data.System = m.System
-	data.Description = m.Description
-	data.Tools = m.Tools
-	data.MCPServers = m.MCPServers
-	data.Skills = m.Skills
-	data.Multiagent = m.Multiagent
-	data.Metadata = m.Metadata
-	data.Version = m.Version
-	data.CreatedAt = m.CreatedAt
-	data.UpdatedAt = m.UpdatedAt
-	data.ArchivedAt = m.ArchivedAt
+	data.fill(*a)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
