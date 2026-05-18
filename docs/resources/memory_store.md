@@ -40,7 +40,7 @@ This resource supports the following arguments:
 
 In addition to all arguments above, the following attributes are exported:
 
-* `id` - Memory store ID.
+* `id` - Memory store ID (`ms_...`).
 * `created_at` - ISO 8601 creation timestamp.
 * `updated_at` - ISO 8601 last-updated timestamp.
 * `archived_at` - ISO 8601 archival timestamp, or null if active.

@@ -9,10 +9,10 @@ Registry: [registry.terraform.io/providers/Elmanuel1/anthropic-managed-agents](h
 | Resource | Auth | Description |
 |---|---|---|
 | `anthropic_workspace` | Admin API key | Anthropic workspace |
-| `anthropic_agent` | WIF | Agent with model, tools, and skills |
-| `anthropic_environment` | WIF | Execution environment for agents |
-| `anthropic_vault` | WIF | Vault for storing credentials |
-| `anthropic_vault_credential` | WIF | MCP server credential in a vault |
+| `anthropic_wif_agent` | WIF | Agent with model, tools, and skills |
+| `anthropic_wif_environment` | WIF | Execution environment for agents |
+| `anthropic_wif_vault` | WIF | Vault for storing credentials |
+| `anthropic_wif_vault_credential` | WIF | MCP server credential in a vault |
 | `anthropic_memory_store` | Admin API key | Memory store for agent persistence |
 
 ## Quick Start
@@ -33,7 +33,7 @@ resource "anthropic_workspace" "example" {
   name = "my-workspace"
 }
 
-resource "anthropic_agent" "example" {
+resource "anthropic_wif_agent" "example" {
   workspace_id = anthropic_workspace.example.id
   name         = "my-agent"
   model        = "claude-sonnet-4-6"

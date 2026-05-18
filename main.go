@@ -5,7 +5,7 @@ import (
 	"flag"
 	"log"
 
-	"github.com/Elmanuel1/terraform-provider-anthropic-wif/internal/provider"
+	"github.com/Elmanuel1/terraform-provider-anthropic-managed-agents/internal/provider"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 )
 
