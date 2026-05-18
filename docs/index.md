@@ -1,7 +1,7 @@
 ---
 page_title: "Provider: anthropic"
 description: |-
-  Use the Anthropic provider to manage Anthropic platform resources. The provider supports Admin API key, Workload Identity Federation (WIF), and workspace API key authentication.
+  Use the Anthropic provider to manage workspaces, agents, environments, vaults, vault credentials, and memory stores on the Anthropic platform.
 ---
 
 # Anthropic Provider
