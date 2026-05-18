@@ -62,10 +62,6 @@ resource "anthropic_agent" "example" {
 When `mcp_servers` is declared, every server must be referenced by a `mcp_toolset` entry in `tools`.
 
 ```terraform
-resource "anthropic_workspace" "example" {
-  name = "my-workspace"
-}
-
 resource "anthropic_vault" "example" {
   workspace_id = anthropic_workspace.example.id
   display_name = "my-vault"
@@ -89,15 +85,7 @@ resource "anthropic_agent" "example" {
   description  = "Handles purchase order workflows."
 
   tools = jsonencode([
-    {
-      type            = "mcp_toolset"
-      mcp_server_name = "erp-server"
-      default_config = {
-        enabled           = true
-        permission_policy = { type = "always_allow" }
-      }
-      configs = []
-    }
+    { type = "mcp_toolset", mcp_server_name = "erp-server" }
   ])
 
   mcp_servers = jsonencode([
@@ -115,65 +103,7 @@ resource "anthropic_agent" "example" {
 }
 ```
 
-~> **Note:** The `mcp_server_name` in each `mcp_toolset` entry must match the `name` of a declared `mcp_servers` entry exactly. The API rejects agents where a declared MCP server has no corresponding toolset.
-
-### Agent with tool permission policies
-
-Use `default_config` to set the default permission for all tools on an MCP server, and `configs` to override individual tools. Set `enabled = false` to hard-block a specific tool.
-
-```terraform
-resource "anthropic_workspace" "example" {
-  name = "my-workspace"
-}
-
-resource "anthropic_agent" "example" {
-  workspace_id = anthropic_workspace.example.id
-  name         = "assistant"
-  model        = "claude-sonnet-4-6"
-  system       = "You are a helpful assistant."
-
-  tools = jsonencode([
-    {
-      type            = "mcp_toolset"
-      mcp_server_name = "slack"
-      default_config = {
-        enabled           = true
-        permission_policy = { type = "always_allow" }
-      }
-      configs = [
-        {
-          name              = "slack_send_message"
-          enabled           = false
-          permission_policy = { type = "always_allow" }
-        },
-        {
-          name              = "slack_schedule_message"
-          enabled           = true
-          permission_policy = { type = "always_ask" }
-        }
-      ]
-    },
-    {
-      type            = "mcp_toolset"
-      mcp_server_name = "confluence"
-      default_config = {
-        enabled           = true
-        permission_policy = { type = "always_ask" }
-      }
-      configs = []
-    }
-  ])
-
-  mcp_servers = jsonencode([
-    { type = "url", name = "slack",      url = var.slack_mcp_url },
-    { type = "url", name = "confluence", url = var.confluence_mcp_url }
-  ])
-}
-```
-
-`permission_policy.type` accepts:
-- `always_allow` — the agent runs the tool automatically.
-- `always_ask` — the agent pauses and asks the user to approve before running the tool.
+~> **Note:** The `mcp_server_name` in each `mcp_toolset` tool entry must match the `name` of a declared `mcp_servers` entry exactly. The API rejects agents where a declared MCP server has no corresponding toolset.
 
 ### Agent with Anthropic skills
 
@@ -221,7 +151,7 @@ resource "anthropic_agent" "coordinator" {
 * `model_speed` - (Optional) Inference speed: `standard` (default) or `fast`.
 * `system` - (Optional) System prompt.
 * `description` - (Optional) Human-readable description.
-* `tools` - (Optional) JSON-encoded tools array. Each `mcp_toolset` entry supports `default_config` (default permission policy) and `configs` (per-tool overrides). Maximum 128 tools.
+* `tools` - (Optional) JSON-encoded tools array. Maximum 128 tools. Each declared `mcp_servers` entry must have a corresponding `{ type = "mcp_toolset", mcp_server_name = "..." }` entry here.
 * `mcp_servers` - (Optional) JSON-encoded MCP servers array. Maximum 20 servers, names must be unique.
 * `skills` - (Optional) JSON-encoded skills array. Maximum 20 skills.
 * `multiagent` - (Optional) JSON-encoded multi-agent coordinator config.
