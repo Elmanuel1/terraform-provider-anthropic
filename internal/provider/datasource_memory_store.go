@@ -17,6 +17,7 @@ type MemoryStoreDataSource struct {
 
 type MemoryStoreDataSourceModel struct {
 	Id          types.String `tfsdk:"id"`
+	Type        types.String `tfsdk:"type"`
 	Name        types.String `tfsdk:"name"`
 	Description types.String `tfsdk:"description"`
 	Metadata    types.Map    `tfsdk:"metadata"`
@@ -27,6 +28,7 @@ type MemoryStoreDataSourceModel struct {
 
 func (m *MemoryStoreDataSourceModel) fill(s client.MemoryStoreResponse) {
 	m.Id = types.StringValue(s.ID)
+	m.Type = types.StringValue(s.Type)
 	m.Name = types.StringValue(s.Name)
 	m.Description = nullableString(s.Description)
 	m.CreatedAt = types.StringValue(s.CreatedAt)
@@ -54,6 +56,7 @@ func (d *MemoryStoreDataSource) Schema(_ context.Context, _ datasource.SchemaReq
 				Required:    true,
 				Description: "Memory store ID.",
 			},
+			"type":        schema.StringAttribute{Computed: true, Description: "Memory store type (e.g. knowledge_base)."},
 			"name":        schema.StringAttribute{Computed: true},
 			"description": schema.StringAttribute{Computed: true},
 			"metadata": schema.MapAttribute{
