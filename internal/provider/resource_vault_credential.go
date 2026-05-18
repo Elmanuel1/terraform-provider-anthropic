@@ -144,7 +144,10 @@ func buildCredentialBody(data WIFVaultCredentialModel) (map[string]any, error) {
 // rejects if re-sent. Only mutable fields — display_name, metadata, and rotatable
 // secrets (token / access_token) — are included.
 func buildCredentialUpdateBody(data WIFVaultCredentialModel) (map[string]any, error) {
-	authObj := map[string]any{}
+	// type is required by the API but mcp_server_url is rejected on update
+	authObj := map[string]any{
+		"type": data.AuthType.ValueString(),
+	}
 
 	switch data.AuthType.ValueString() {
 	case "static_bearer":
@@ -472,3 +475,4 @@ func (r *WIFVaultCredentialResource) ImportState(ctx context.Context, req resour
 		resp.Diagnostics.AddError("Invalid import ID", "Expected format: workspace_id/vault_id/credential_id or vault_id/credential_id")
 	}
 }
+
