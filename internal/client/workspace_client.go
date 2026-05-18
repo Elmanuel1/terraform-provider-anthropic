@@ -74,7 +74,7 @@ func (c *WorkspaceClient) ResolveByName(ctx context.Context, name string) (strin
 				c.byName[w.Name] = w.ID
 			}
 
-			if !result.HasMore {
+			if !result.HasMore || result.LastID == "" {
 				break
 			}
 			afterID = result.LastID
