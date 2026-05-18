@@ -148,7 +148,7 @@ var _ resource.Resource = &WIFVaultCredentialResource{}
 var _ resource.ResourceWithImportState = &WIFVaultCredentialResource{}
 
 func (r *WIFVaultCredentialResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = req.ProviderTypeName + "_wif_vault_credential"
+	resp.TypeName = req.ProviderTypeName + "_vault_credential"
 }
 
 func (r *WIFVaultCredentialResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {

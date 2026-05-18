@@ -103,7 +103,7 @@ var _ resource.Resource = &WIFEnvironmentResource{}
 var _ resource.ResourceWithImportState = &WIFEnvironmentResource{}
 
 func (r *WIFEnvironmentResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = req.ProviderTypeName + "_wif_environment"
+	resp.TypeName = req.ProviderTypeName + "_environment"
 }
 
 func (r *WIFEnvironmentResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {

@@ -49,15 +49,15 @@ func (p *anthropicProvider) Schema(_ context.Context, _ provider.SchemaRequest, 
 			},
 			"federation_rule_id": schema.StringAttribute{
 				Optional:    true,
-				Description: "Federation rule ID (fdrl_...). Falls back to ANTHROPIC_FEDERATION_RULE_ID. Required for anthropic_wif_* resources.",
+				Description: "Federation rule ID (fdrl_...). Falls back to ANTHROPIC_FEDERATION_RULE_ID. Required for anthropic_agent, anthropic_environment, anthropic_vault, anthropic_vault_credential.",
 			},
 			"organization_id": schema.StringAttribute{
 				Optional:    true,
-				Description: "Anthropic organization UUID. Falls back to ANTHROPIC_ORGANIZATION_ID. Required for anthropic_wif_* resources.",
+				Description: "Anthropic organization UUID. Falls back to ANTHROPIC_ORGANIZATION_ID. Required for anthropic_agent, anthropic_environment, anthropic_vault, anthropic_vault_credential.",
 			},
 			"service_account_id": schema.StringAttribute{
 				Optional:    true,
-				Description: "Service account ID (svac_...). Falls back to ANTHROPIC_SERVICE_ACCOUNT_ID. Required for anthropic_wif_* resources.",
+				Description: "Service account ID (svac_...). Falls back to ANTHROPIC_SERVICE_ACCOUNT_ID. Required for anthropic_agent, anthropic_environment, anthropic_vault, anthropic_vault_credential.",
 			},
 		},
 	}
