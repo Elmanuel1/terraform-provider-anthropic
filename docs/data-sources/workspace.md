@@ -13,19 +13,21 @@ Reads an existing Anthropic workspace by ID or name. Requires `admin_api_key` in
 
 ```hcl
 # Look up by name
-data "anthropic_workspace" "prod" {
+data "anthropic_workspace" "by_name" {
   provider = anthropic.admin
   name     = "production"
 }
 
+output "workspace_id" {
+  value = data.anthropic_workspace.by_name.id
+}
+```
+
+```hcl
 # Look up by ID
-data "anthropic_workspace" "prod" {
+data "anthropic_workspace" "by_id" {
   provider = anthropic.admin
   id       = "wrks_01abc..."
-}
-
-output "workspace_id" {
-  value = data.anthropic_workspace.prod.id
 }
 ```
 
