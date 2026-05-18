@@ -51,7 +51,7 @@ func (p *anthropicProvider) Schema(_ context.Context, _ provider.SchemaRequest, 
 			"workspace_api_key": schema.StringAttribute{
 				Optional:    true,
 				Sensitive:   true,
-				Description: "Anthropic workspace API key (sk-ant-api03-...). Used as a fallback for anthropic_agent when WIF is not configured.",
+				Description: "Anthropic workspace API key (sk-ant-api03-...). Used for anthropic_agent authentication. When both workspace_api_key and WIF are configured, WIF takes precedence.",
 			},
 			"federation_rule_id": schema.StringAttribute{
 				Optional:    true,
