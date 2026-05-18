@@ -121,10 +121,10 @@ func (r *WIFVaultResource) ModifyPlan(ctx context.Context, req resource.ModifyPl
 		return
 	}
 	workspaceID := ""
-	if !plan.WorkspaceId.IsUnknown() {
+	if !plan.WorkspaceId.IsNull() && !plan.WorkspaceId.IsUnknown() {
 		workspaceID = plan.WorkspaceId.ValueString()
 	}
-	validateWorkspaceCredentials(r.data, "anthropic_vault", workspaceID, &resp.Diagnostics)
+	validateWorkspaceCredentials(r.data, "anthropic_vault", workspaceID, plan.WorkspaceId.IsUnknown(), &resp.Diagnostics)
 }
 
 func (r *WIFVaultResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {

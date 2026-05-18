@@ -237,10 +237,10 @@ func (r *WIFEnvironmentResource) ModifyPlan(ctx context.Context, req resource.Mo
 	// Pass empty string in that case so WIF-without-workspace_id is only flagged when
 	// workspace_id is definitively absent.
 	workspaceID := ""
-	if !plan.WorkspaceId.IsUnknown() {
+	if !plan.WorkspaceId.IsNull() && !plan.WorkspaceId.IsUnknown() {
 		workspaceID = plan.WorkspaceId.ValueString()
 	}
-	validateWorkspaceCredentials(r.data, "anthropic_environment", workspaceID, &resp.Diagnostics)
+	validateWorkspaceCredentials(r.data, "anthropic_environment", workspaceID, plan.WorkspaceId.IsUnknown(), &resp.Diagnostics)
 }
 
 func (r *WIFEnvironmentResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {

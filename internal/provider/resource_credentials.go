@@ -31,9 +31,9 @@ func resolveWorkspaceCredentials(ctx context.Context, data *providerData, resour
 		diags.AddError("Invalid WIF configuration", data.wifErr.Error())
 	} else if workspaceID != "" {
 		diags.AddError("Missing credentials",
-			fmt.Sprintf("workspace_id is set but WIF is not fully configured and workspace_api_key is not set. "+
+			fmt.Sprintf("workspace_id is set on %s but WIF is not fully configured and workspace_api_key is not set. "+
 				"Set federation_rule_id, organization_id, service_account_id in the provider block, "+
-				"or set workspace_api_key. (resource: %s)", resourceName))
+				"or set workspace_api_key.", resourceName))
 	} else {
 		diags.AddError("Missing credentials",
 			fmt.Sprintf("No authentication method is configured for %s. "+
@@ -44,9 +44,9 @@ func resolveWorkspaceCredentials(ctx context.Context, data *providerData, resour
 }
 
 // validateWorkspaceCredentials is called from ModifyPlan to catch misconfigurations at plan time.
-// workspaceID may be empty-string when the value is unknown at plan time (referencing a
-// not-yet-created resource) — in that case WIF path validation is deferred to apply.
-func validateWorkspaceCredentials(data *providerData, resourceName, workspaceID string, diags interface{ AddError(string, string) }) {
+// workspaceIDUnknown should be true when workspace_id references a not-yet-created resource —
+// in that case the WIF-without-workspace_id check is deferred to apply time.
+func validateWorkspaceCredentials(data *providerData, resourceName, workspaceID string, workspaceIDUnknown bool, diags interface{ AddError(string, string) }) {
 	if data == nil {
 		return
 	}
@@ -61,7 +61,11 @@ func validateWorkspaceCredentials(data *providerData, resourceName, workspaceID 
 		)
 		return
 	}
-	// WIF is configured but workspace_id is definitively absent (not just unknown).
+	// workspace_id is unknown at plan time — skip the WIF-needs-workspace_id check.
+	// apply will validate it once the value is resolved.
+	if workspaceIDUnknown {
+		return
+	}
 	if wifConfigured && !apiKeyConfigured && workspaceID == "" {
 		diags.AddError(
 			"Missing workspace_id",
