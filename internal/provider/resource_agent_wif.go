@@ -42,7 +42,7 @@ func (r *WIFAgentResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 	attrs["workspace_id"] = schema.StringAttribute{
 		Optional:      true,
 		PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-		Description:   "ID of the workspace this agent belongs to. Required when using WIF authentication. Not needed when using api_key.",
+		Description:   "ID of the workspace this agent belongs to. Required when using WIF authentication. Not needed when using workspace_api_key.",
 	}
 	resp.Schema = schema.Schema{
 		Description: "Manages an Anthropic agent. Supports WIF (workspace_id required) and workspace API key authentication. WIF takes precedence when both are configured.",
@@ -51,11 +51,38 @@ func (r *WIFAgentResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 }
 
 func (r *WIFAgentResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
-	if req.Plan.Raw.IsNull() || req.State.Raw.IsNull() {
+	// Destroy plan — nothing to validate.
+	if req.Plan.Raw.IsNull() {
 		return
 	}
-	var plan, state WIFAgentModel
+
+	var plan WIFAgentModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Validate that at least one auth method will be available at apply time.
+	if r.data != nil {
+		wifConfigured := r.data.wif != nil && !plan.WorkspaceId.IsNull() && !plan.WorkspaceId.IsUnknown()
+		apiKeyConfigured := r.data.workspaceAPIKey != ""
+		if !wifConfigured && !apiKeyConfigured {
+			resp.Diagnostics.AddError(
+				"Missing credentials",
+				"No authentication method is configured for anthropic_agent. "+
+					"Set workspace_id together with WIF credentials (federation_rule_id, organization_id, service_account_id), "+
+					"or set workspace_api_key in the provider block.",
+			)
+			return
+		}
+	}
+
+	// Skip version/updated_at unknowns on create (no prior state).
+	if req.State.Raw.IsNull() {
+		return
+	}
+
+	var state WIFAgentModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -79,45 +106,38 @@ func (r *WIFAgentResource) Configure(_ context.Context, req resource.ConfigureRe
 	r.data = data
 }
 
-// resolveCredentials returns the credentials to use for the agent API call.
-// WIF takes precedence when workspace_id is set and WIF is fully configured.
-// Falls back to the workspace API key when WIF is not available.
+// resolveCredentials returns the credentials for the agent API call.
+// WIF is used when workspace_id is set and WIF is fully configured.
+// workspace_api_key is used otherwise.
+// When both are configured, WIF takes precedence.
 func (r *WIFAgentResource) resolveCredentials(ctx context.Context, workspaceID string, diags interface{ AddError(string, string) }) auth.Credentials {
 	if r.data == nil {
 		diags.AddError("Provider not configured", "No provider data available.")
 		return nil
 	}
 
-	wifReady := r.data.wif != nil && workspaceID != ""
-
-	if wifReady {
-		if r.data.wif != nil && r.data.wifErr == nil {
-			tflog.Debug(ctx, "anthropic_agent: using WIF authentication", map[string]any{"workspace_id": workspaceID})
-			return auth.WIFBearer{Config: r.data.wif, WorkspaceID: workspaceID}
-		}
+	if r.data.wif != nil && workspaceID != "" {
+		tflog.Debug(ctx, "anthropic_agent: using WIF authentication", map[string]any{"workspace_id": workspaceID})
+		return auth.WIFBearer{Config: r.data.wif, WorkspaceID: workspaceID}
 	}
 
 	if r.data.workspaceAPIKey != "" {
-		if wifReady {
-			tflog.Warn(ctx, "anthropic_agent: WIF config incomplete, falling back to api_key", map[string]any{"workspace_id": workspaceID})
-		} else {
-			tflog.Debug(ctx, "anthropic_agent: using workspace API key authentication")
-		}
+		tflog.Debug(ctx, "anthropic_agent: using workspace API key authentication")
 		return auth.WorkspaceAPIKey{Key: r.data.workspaceAPIKey}
 	}
 
-	// Neither auth method is available — report a clear error.
 	if workspaceID != "" && r.data.wifErr != nil {
 		diags.AddError("Invalid WIF configuration", r.data.wifErr.Error())
 	} else if workspaceID != "" {
 		diags.AddError("Missing credentials",
-			"workspace_id is set but WIF is not configured and no api_key is available. "+
-				"Set federation_rule_id, organization_id, service_account_id (or ANTHROPIC_FEDERATION_RULE_ID, ANTHROPIC_ORGANIZATION_ID, ANTHROPIC_SERVICE_ACCOUNT_ID) "+
-				"or provide workspace_api_key (or ANTHROPIC_API_KEY).")
+			"workspace_id is set but WIF is not fully configured and workspace_api_key is not set. "+
+				"Set federation_rule_id, organization_id, service_account_id in the provider block, "+
+				"or set workspace_api_key.")
 	} else {
 		diags.AddError("Missing credentials",
 			"No authentication method is configured for anthropic_agent. "+
-				"Provide workspace_api_key (or ANTHROPIC_API_KEY), or set workspace_id together with WIF credentials.")
+				"Set workspace_api_key in the provider block, "+
+				"or set workspace_id together with WIF credentials (federation_rule_id, organization_id, service_account_id).")
 	}
 	return nil
 }
@@ -225,7 +245,7 @@ func (r *WIFAgentResource) Delete(ctx context.Context, req resource.DeleteReques
 
 // ImportState supports two formats:
 //   - workspace_id/agent_id  (WIF path)
-//   - agent_id               (API key path — workspace_id left null)
+//   - agent_id               (workspace_api_key path — workspace_id left null)
 func (r *WIFAgentResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	parts := strings.SplitN(req.ID, "/", 2)
 	switch len(parts) {

@@ -98,6 +98,9 @@ func (p *anthropicProvider) Configure(ctx context.Context, req provider.Configur
 			"federation_rule_id":  wifCfg.FederationRuleID,
 			"service_account_id": wifCfg.ServiceAccountID,
 		})
+	} else if wifErr != nil {
+		tflog.Warn(ctx, "partial WIF configuration provided but incomplete — WIF resources will fail at apply time",
+			map[string]any{"error": wifErr.Error()})
 	}
 }
 
