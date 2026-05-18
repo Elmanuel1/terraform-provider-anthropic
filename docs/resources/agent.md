@@ -57,9 +57,25 @@ resource "anthropic_agent" "example" {
 }
 ```
 
-### Agent with tools and MCP servers
+### Agent with MCP server
+
+When `mcp_servers` is declared, every server must be referenced by a `mcp_toolset` entry in `tools`.
 
 ```terraform
+resource "anthropic_vault" "example" {
+  workspace_id = anthropic_workspace.example.id
+  display_name = "my-vault"
+}
+
+resource "anthropic_vault_credential" "example" {
+  workspace_id   = anthropic_workspace.example.id
+  vault_id       = anthropic_vault.example.id
+  display_name   = "erp-token"
+  auth_type      = "static_bearer"
+  mcp_server_url = "https://erp.example.com/mcp"
+  token          = var.mcp_token
+}
+
 resource "anthropic_agent" "example" {
   workspace_id = anthropic_workspace.example.id
   name         = "procurement-agent"
@@ -69,13 +85,13 @@ resource "anthropic_agent" "example" {
   description  = "Handles purchase order workflows."
 
   tools = jsonencode([
-    { "type" = "agent_toolset_20260401" }
+    { type = "mcp_toolset", mcp_server_name = "erp-server" }
   ])
 
   mcp_servers = jsonencode([
     {
-      name = "erp-server"
       type = "url"
+      name = "erp-server"
       url  = "https://erp.example.com/mcp"
     }
   ])
@@ -87,6 +103,8 @@ resource "anthropic_agent" "example" {
 }
 ```
 
+~> **Note:** The `mcp_server_name` in each `mcp_toolset` tool entry must match the `name` of a declared `mcp_servers` entry exactly. The API rejects agents where a declared MCP server has no corresponding toolset.
+
 ### Agent with Anthropic skills
 
 ```terraform
@@ -97,8 +115,8 @@ resource "anthropic_agent" "example" {
   system       = "You are a data analysis assistant."
 
   skills = jsonencode([
-    { "type" = "anthropic", "skill_id" = "xlsx" },
-    { "type" = "anthropic", "skill_id" = "web_search" }
+    { type = "anthropic", skill_id = "xlsx" },
+    { type = "anthropic", skill_id = "web_search" }
   ])
 }
 ```
@@ -133,7 +151,7 @@ resource "anthropic_agent" "coordinator" {
 * `model_speed` - (Optional) Inference speed: `standard` (default) or `fast`.
 * `system` - (Optional) System prompt.
 * `description` - (Optional) Human-readable description.
-* `tools` - (Optional) JSON-encoded tools array. Maximum 20 tools.
+* `tools` - (Optional) JSON-encoded tools array. Maximum 128 tools. Each declared `mcp_servers` entry must have a corresponding `{ type = "mcp_toolset", mcp_server_name = "..." }` entry here.
 * `mcp_servers` - (Optional) JSON-encoded MCP servers array. Maximum 20 servers, names must be unique.
 * `skills` - (Optional) JSON-encoded skills array. Maximum 20 skills.
 * `multiagent` - (Optional) JSON-encoded multi-agent coordinator config.
