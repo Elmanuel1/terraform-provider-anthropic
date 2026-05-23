@@ -26,7 +26,7 @@ terraform {
   required_providers {
     anthropic = {
       source  = "Elmanuel1/anthropic"
-      version = "~> 0.2.2"
+      version = "~> 0.3.5"
     }
   }
 }
@@ -81,6 +81,10 @@ variable "mcp_token" {
   type      = string
   sensitive = true
 }
+
+variable "slack_mcp_url" {
+  type = string
+}
 ```
 
 ## workspaces.tf
@@ -107,15 +111,15 @@ WIF-authenticated resources scoped to `anthropic_workspace.primary`.
 
 ```terraform
 resource "anthropic_environment" "wif" {
-  provider              = anthropic.wif
-  workspace_id          = anthropic_workspace.primary.id
-  name                  = "my-team-wif-env"
-  description           = "Execution environment for WIF workloads"
-  networking_type       = "limited"
-  allowed_hosts         = ["api.anthropic.com", "pypi.org"]
-  allow_mcp_servers     = true
+  provider               = anthropic.wif
+  workspace_id           = anthropic_workspace.primary.id
+  name                   = "my-team-wif-env"
+  description            = "Execution environment for WIF workloads"
+  networking_type        = "limited"
+  allowed_hosts          = ["api.anthropic.com", "pypi.org", "api.slack.com"]
+  allow_mcp_servers      = true
   allow_package_managers = true
-  packages              = jsonencode({ pip = ["requests"] })
+  packages               = jsonencode({ pip = ["requests"] })
   metadata = {
     team = "my-team"
     env  = "production"
@@ -156,11 +160,35 @@ resource "anthropic_agent" "wif" {
   description  = "Primary agent"
 
   tools = jsonencode([
-    { type = "mcp_toolset", mcp_server_name = "my-server" }
+    {
+      type            = "mcp_toolset"
+      mcp_server_name = "my-server"
+      default_config = {
+        enabled           = true
+        permission_policy = { type = "always_allow" }
+      }
+      configs = []
+    },
+    {
+      type            = "mcp_toolset"
+      mcp_server_name = "slack"
+      default_config = {
+        enabled           = true
+        permission_policy = { type = "always_allow" }
+      }
+      configs = [
+        {
+          name              = "slack_send_message"
+          enabled           = false
+          permission_policy = { type = "always_allow" }
+        }
+      ]
+    }
   ])
 
   mcp_servers = jsonencode([
-    { type = "url", name = "my-server", url = "https://mcp.example.com" }
+    { type = "url", name = "my-server", url = "https://mcp.example.com" },
+    { type = "url", name = "slack", url = var.slack_mcp_url }
   ])
 
   metadata = {
@@ -180,7 +208,7 @@ resource "anthropic_environment" "workspace" {
   name                   = "my-team-workspace-env"
   description            = "Execution environment for workspace API key workloads"
   networking_type        = "limited"
-  allowed_hosts          = ["api.anthropic.com", "pypi.org"]
+  allowed_hosts          = ["api.anthropic.com", "pypi.org", "api.slack.com"]
   allow_mcp_servers      = true
   allow_package_managers = true
   packages               = jsonencode({ pip = ["requests"] })
@@ -221,11 +249,35 @@ resource "anthropic_agent" "workspace" {
   description = "Agent authenticated via workspace API key"
 
   tools = jsonencode([
-    { type = "mcp_toolset", mcp_server_name = "my-server" }
+    {
+      type            = "mcp_toolset"
+      mcp_server_name = "my-server"
+      default_config = {
+        enabled           = true
+        permission_policy = { type = "always_allow" }
+      }
+      configs = []
+    },
+    {
+      type            = "mcp_toolset"
+      mcp_server_name = "slack"
+      default_config = {
+        enabled           = true
+        permission_policy = { type = "always_allow" }
+      }
+      configs = [
+        {
+          name              = "slack_send_message"
+          enabled           = false
+          permission_policy = { type = "always_allow" }
+        }
+      ]
+    }
   ])
 
   mcp_servers = jsonencode([
-    { type = "url", name = "my-server", url = "https://mcp.example.com" }
+    { type = "url", name = "my-server", url = "https://mcp.example.com" },
+    { type = "url", name = "slack", url = var.slack_mcp_url }
   ])
 
   metadata = {
@@ -233,6 +285,44 @@ resource "anthropic_agent" "workspace" {
     env  = "production"
   }
 }
+```
+
+## Tool permission policies
+
+Each `mcp_toolset` entry in `tools` supports `default_config` (applies to all tools in the server) and `configs` (per-tool overrides). Both accept a `permission_policy` with one of two types:
+
+| `permission_policy.type` | Behaviour |
+|---|---|
+| `always_allow` | Agent runs the tool automatically without asking the user |
+| `always_ask` | Agent pauses and asks the user to approve before running the tool |
+
+Use `configs` to disable specific tools (`enabled = false`) or override their policy:
+
+```terraform
+tools = jsonencode([
+  {
+    type            = "mcp_toolset"
+    mcp_server_name = "slack"
+    default_config = {
+      enabled           = true
+      permission_policy = { type = "always_allow" }
+    }
+    configs = [
+      # Hard-block direct messages
+      {
+        name              = "slack_send_message"
+        enabled           = false
+        permission_policy = { type = "always_allow" }
+      },
+      # Always ask before scheduling
+      {
+        name              = "slack_schedule_message"
+        enabled           = true
+        permission_policy = { type = "always_ask" }
+      }
+    ]
+  }
+])
 ```
 
 ## Key differences between WIF and workspace API key resources

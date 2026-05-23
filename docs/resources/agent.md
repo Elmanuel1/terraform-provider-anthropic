@@ -85,7 +85,15 @@ resource "anthropic_agent" "example" {
   description  = "Handles purchase order workflows."
 
   tools = jsonencode([
-    { type = "mcp_toolset", mcp_server_name = "erp-server" }
+    {
+      type            = "mcp_toolset"
+      mcp_server_name = "erp-server"
+      default_config = {
+        enabled           = true
+        permission_policy = { type = "always_allow" }
+      }
+      configs = []
+    }
   ])
 
   mcp_servers = jsonencode([
@@ -104,6 +112,62 @@ resource "anthropic_agent" "example" {
 ```
 
 ~> **Note:** The `mcp_server_name` in each `mcp_toolset` tool entry must match the `name` of a declared `mcp_servers` entry exactly. The API rejects agents where a declared MCP server has no corresponding toolset.
+
+### Agent with tool permission policies
+
+Use `default_config` to set the default permission for all tools on an MCP server, and `configs` to override individual tools. Set `enabled = false` to hard-block a specific tool.
+
+```terraform
+resource "anthropic_agent" "example" {
+  workspace_id = anthropic_workspace.example.id
+  name         = "assistant"
+  model        = "claude-sonnet-4-6"
+  system       = "You are a helpful assistant."
+
+  tools = jsonencode([
+    {
+      type            = "mcp_toolset"
+      mcp_server_name = "slack"
+      default_config = {
+        enabled           = true
+        permission_policy = { type = "always_allow" }
+      }
+      configs = [
+        # Hard-block direct messages
+        {
+          name              = "slack_send_message"
+          enabled           = false
+          permission_policy = { type = "always_allow" }
+        },
+        # Require approval before scheduling
+        {
+          name              = "slack_schedule_message"
+          enabled           = true
+          permission_policy = { type = "always_ask" }
+        }
+      ]
+    },
+    {
+      type            = "mcp_toolset"
+      mcp_server_name = "confluence"
+      default_config = {
+        enabled           = true
+        permission_policy = { type = "always_ask" }
+      }
+      configs = []
+    }
+  ])
+
+  mcp_servers = jsonencode([
+    { type = "url", name = "slack",      url = var.slack_mcp_url },
+    { type = "url", name = "confluence", url = var.confluence_mcp_url }
+  ])
+}
+```
+
+`permission_policy.type` accepts:
+- `always_allow` — the agent runs the tool automatically.
+- `always_ask` — the agent pauses and asks the user to approve before running the tool.
 
 ### Agent with Anthropic skills
 
