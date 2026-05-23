@@ -9,12 +9,9 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-// apiInjectedToolKeys are fields the API adds to tool objects that users never specify.
-// Stripping them keeps the stored JSON consistent with the plan value.
-var apiInjectedToolKeys = map[string]bool{
-	"configs":        true,
-	"default_config": true,
-}
+// apiInjectedToolKeys are fields the API injects into tool objects that users never specify.
+// configs and default_config are user-specifiable, so they are NOT stripped.
+var apiInjectedToolKeys = map[string]bool{}
 
 // marshalJSONList serializes a list of raw JSON items back to a JSON array string,
 // stripping any API-injected keys from each object so the stored value stays stable.
