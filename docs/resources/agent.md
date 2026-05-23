@@ -166,8 +166,8 @@ resource "anthropic_agent" "example" {
 ```
 
 `permission_policy.type` accepts:
-- `always_allow` — the agent runs the tool automatically.
-- `always_ask` — the agent pauses and asks the user to approve before running the tool.
+- `always_allow`: the agent runs the tool automatically.
+- `always_ask`: the agent pauses and asks the user to approve before running the tool.
 
 ### Agent with Anthropic skills
 
