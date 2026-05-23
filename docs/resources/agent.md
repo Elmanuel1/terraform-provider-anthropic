@@ -62,6 +62,10 @@ resource "anthropic_agent" "example" {
 When `mcp_servers` is declared, every server must be referenced by a `mcp_toolset` entry in `tools`.
 
 ```terraform
+resource "anthropic_workspace" "example" {
+  name = "my-workspace"
+}
+
 resource "anthropic_vault" "example" {
   workspace_id = anthropic_workspace.example.id
   display_name = "my-vault"
@@ -118,6 +122,10 @@ resource "anthropic_agent" "example" {
 Use `default_config` to set the default permission for all tools on an MCP server, and `configs` to override individual tools. Set `enabled = false` to hard-block a specific tool.
 
 ```terraform
+resource "anthropic_workspace" "example" {
+  name = "my-workspace"
+}
+
 resource "anthropic_agent" "example" {
   workspace_id = anthropic_workspace.example.id
   name         = "assistant"
