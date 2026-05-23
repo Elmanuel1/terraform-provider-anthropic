@@ -19,11 +19,12 @@ import (
 const skillsPath = "/v1/skills"
 
 type SkillResponse struct {
-	ID           string  `json:"id"`
-	DisplayTitle string  `json:"display_title"`
-	Description  *string `json:"description"`
-	CreatedAt    string  `json:"created_at"`
-	UpdatedAt    string  `json:"updated_at"`
+	ID            string  `json:"id"`
+	DisplayTitle  *string `json:"display_title"`
+	LatestVersion *string `json:"latest_version"`
+	Source        string  `json:"source"`
+	CreatedAt     string  `json:"created_at"`
+	UpdatedAt     string  `json:"updated_at"`
 }
 
 type SkillVersionResponse struct {
@@ -41,9 +42,8 @@ func NewSkillClient(creds auth.AdminAPIKey) *SkillClient {
 }
 
 // Create uploads a new skill from sourceDir via multipart POST to /v1/skills?beta=true.
-// display_title is required; description is optional.
-func (c *SkillClient) Create(ctx context.Context, displayTitle string, description *string, sourceDir string) (*SkillResponse, error) {
-	body, contentType, err := buildMultipartBody(displayTitle, description, sourceDir)
+func (c *SkillClient) Create(ctx context.Context, displayTitle, sourceDir string) (*SkillResponse, error) {
+	body, contentType, err := buildMultipartBody(displayTitle, sourceDir)
 	if err != nil {
 		return nil, fmt.Errorf("creating skill: building multipart body: %w", err)
 	}
@@ -66,18 +66,14 @@ func (c *SkillClient) Create(ctx context.Context, displayTitle string, descripti
 		return nil, fmt.Errorf("creating skill returned HTTP %d: %s", status, raw)
 	}
 
-	// The create endpoint may return a minimal response; do a Read to get full state.
-	var partial struct {
-		ID string `json:"id"`
-	}
-	if err := json.Unmarshal(raw, &partial); err != nil {
+	var s SkillResponse
+	if err := json.Unmarshal(raw, &s); err != nil {
 		return nil, fmt.Errorf("creating skill: parsing response: %w", err)
 	}
-	if partial.ID == "" {
+	if s.ID == "" {
 		return nil, fmt.Errorf("creating skill: response did not include an id: %s", raw)
 	}
-
-	return c.Read(ctx, partial.ID)
+	return &s, nil
 }
 
 // Read fetches a skill by ID from GET /v1/skills/{id}?beta=true.
@@ -115,7 +111,7 @@ func (c *SkillClient) Delete(ctx context.Context, id string) error {
 
 // CreateVersion uploads new source files as a new version of an existing skill.
 func (c *SkillClient) CreateVersion(ctx context.Context, id, sourceDir string) (*SkillVersionResponse, error) {
-	body, contentType, err := buildMultipartBody("", nil, sourceDir)
+	body, contentType, err := buildMultipartBody("", sourceDir)
 	if err != nil {
 		return nil, fmt.Errorf("creating skill version: building multipart body: %w", err)
 	}
@@ -166,9 +162,9 @@ func (c *SkillClient) doRaw(req *http.Request) ([]byte, int, error) {
 }
 
 // buildMultipartBody constructs the multipart/form-data body for skill create/version requests.
-// displayTitle and description are only included when non-empty (for Create, not CreateVersion).
+// displayTitle is only written when non-empty (Create passes it; CreateVersion passes "").
 // It validates that sourceDir contains a SKILL.md at its root.
-func buildMultipartBody(displayTitle string, description *string, sourceDir string) (*bytes.Buffer, string, error) {
+func buildMultipartBody(displayTitle, sourceDir string) (*bytes.Buffer, string, error) {
 	var files []string
 	err := filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -210,12 +206,6 @@ func buildMultipartBody(displayTitle string, description *string, sourceDir stri
 	if displayTitle != "" {
 		if err := w.WriteField("display_title", displayTitle); err != nil {
 			return nil, "", fmt.Errorf("writing display_title field: %w", err)
-		}
-	}
-
-	if description != nil && *description != "" {
-		if err := w.WriteField("description", *description); err != nil {
-			return nil, "", fmt.Errorf("writing description field: %w", err)
 		}
 	}
 

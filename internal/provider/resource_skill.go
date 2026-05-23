@@ -26,7 +26,6 @@ type SkillResource struct {
 type SkillModel struct {
 	ID           types.String `tfsdk:"id"`
 	DisplayTitle types.String `tfsdk:"display_title"`
-	Description  types.String `tfsdk:"description"`
 	SourceDir    types.String `tfsdk:"source_dir"`
 	SourceHash   types.String `tfsdk:"source_hash"`
 	CreatedAt    types.String `tfsdk:"created_at"`
@@ -35,8 +34,7 @@ type SkillModel struct {
 
 func (m *SkillModel) fill(s client.SkillResponse) {
 	m.ID = types.StringValue(s.ID)
-	m.DisplayTitle = types.StringValue(s.DisplayTitle)
-	m.Description = nullableString(s.Description)
+	m.DisplayTitle = nullableString(s.DisplayTitle)
 	m.CreatedAt = types.StringValue(s.CreatedAt)
 	m.UpdatedAt = types.StringValue(s.UpdatedAt)
 	// SourceDir and SourceHash are not set here — they are managed locally.
@@ -65,11 +63,6 @@ func (r *SkillResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 				Required:      true,
 				Description:   "Human-readable title for the skill.",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-			},
-			"description": schema.StringAttribute{
-				Optional:    true,
-				Computed:    true,
-				Description: "Optional description of the skill.",
 			},
 			"source_dir": schema.StringAttribute{
 				Required:    true,
@@ -135,14 +128,8 @@ func (r *SkillResource) Create(ctx context.Context, req resource.CreateRequest, 
 		return
 	}
 
-	var desc *string
-	if !data.Description.IsNull() && !data.Description.IsUnknown() {
-		v := data.Description.ValueString()
-		desc = &v
-	}
-
 	c := r.skillClient()
-	s, err := c.Create(ctx, data.DisplayTitle.ValueString(), desc, sourceDir)
+	s, err := c.Create(ctx, data.DisplayTitle.ValueString(), sourceDir)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to create skill: %s", err))
 		return

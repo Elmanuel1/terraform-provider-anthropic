@@ -18,15 +18,13 @@ type SkillDataSource struct {
 type SkillDataModel struct {
 	ID           types.String `tfsdk:"id"`
 	DisplayTitle types.String `tfsdk:"display_title"`
-	Description  types.String `tfsdk:"description"`
 	CreatedAt    types.String `tfsdk:"created_at"`
 	UpdatedAt    types.String `tfsdk:"updated_at"`
 }
 
 func (m *SkillDataModel) fill(s client.SkillResponse) {
 	m.ID = types.StringValue(s.ID)
-	m.DisplayTitle = types.StringValue(s.DisplayTitle)
-	m.Description = nullableString(s.Description)
+	m.DisplayTitle = nullableString(s.DisplayTitle)
 	m.CreatedAt = types.StringValue(s.CreatedAt)
 	m.UpdatedAt = types.StringValue(s.UpdatedAt)
 }
@@ -53,10 +51,6 @@ func (d *SkillDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, 
 			"display_title": schema.StringAttribute{
 				Computed:    true,
 				Description: "Human-readable title for the skill.",
-			},
-			"description": schema.StringAttribute{
-				Computed:    true,
-				Description: "Optional description of the skill.",
 			},
 			"created_at": schema.StringAttribute{
 				Computed: true,
