@@ -58,10 +58,12 @@ func (m *WIFEnvironmentModel) fill(e client.EnvironmentResponse) error {
 	m.UpdatedAt = types.StringValue(e.UpdatedAt)
 	m.ArchivedAt = nullableString(e.ArchivedAt)
 	m.Scope = nullableString(e.Scope)
-	if e.Config != nil && e.Config.Type == "self_hosted" {
+	if e.Config == nil || e.Config.Type == "cloud" {
+		m.Type = types.StringValue("cloud")
+	} else if e.Config.Type == "self_hosted" {
 		m.Type = types.StringValue("self_hosted")
 	} else {
-		m.Type = types.StringValue("cloud")
+		return fmt.Errorf("unrecognized environment config type %q; expected \"cloud\" or \"self_hosted\"", e.Config.Type)
 	}
 
 	emptyHosts := types.ListValueMust(types.StringType, []attr.Value{})

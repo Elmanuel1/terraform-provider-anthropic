@@ -2,6 +2,7 @@ package provider
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/Elmanuel1/terraform-provider-anthropic/internal/client"
@@ -284,6 +285,34 @@ func TestWIFEnvironmentModel_Fill_CloudDefault(t *testing.T) {
 	}
 	if !m.Scope.IsNull() {
 		t.Errorf("expected null scope for cloud env, got %s", m.Scope.ValueString())
+	}
+}
+
+func TestWIFEnvironmentModel_Fill_UnknownTypeReturnsError(t *testing.T) {
+	var m WIFEnvironmentModel
+	err := m.fill(client.EnvironmentResponse{
+		ID:        "env_5",
+		Name:      "mystery-env",
+		CreatedAt: "2024-01-01T00:00:00Z",
+		UpdatedAt: "2024-01-02T00:00:00Z",
+		Config: &struct {
+			Type       string          `json:"type"`
+			Packages   json.RawMessage `json:"packages"`
+			Networking *struct {
+				Type                 string   `json:"type"`
+				AllowedHosts         []string `json:"allowed_hosts"`
+				AllowMCPServers      *bool    `json:"allow_mcp_servers"`
+				AllowPackageManagers *bool    `json:"allow_package_managers"`
+			} `json:"networking"`
+		}{
+			Type: "future_type",
+		},
+	})
+	if err == nil {
+		t.Fatal("expected error for unrecognized config type, got nil")
+	}
+	if !strings.Contains(err.Error(), "future_type") {
+		t.Errorf("expected error to mention the unknown type, got: %v", err)
 	}
 }
 
