@@ -14,7 +14,9 @@ type EnvironmentResponse struct {
 	ID          string  `json:"id"`
 	Name        string  `json:"name"`
 	Description *string `json:"description"`
+	Scope       *string `json:"scope"`
 	Config      *struct {
+		Type       string          `json:"type"`
 		Packages   json.RawMessage `json:"packages"`
 		Networking *struct {
 			Type                 string   `json:"type"`

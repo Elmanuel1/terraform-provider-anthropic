@@ -25,20 +25,22 @@ type WIFEnvironmentResource struct {
 }
 
 type WIFEnvironmentModel struct {
-	Id                   types.String `tfsdk:"id"`
-	WorkspaceId          types.String `tfsdk:"workspace_id"`
-	Name                 types.String `tfsdk:"name"`
-	Description          types.String `tfsdk:"description"`
-	NetworkingType       types.String `tfsdk:"networking_type"`
-	AllowedHosts         types.List   `tfsdk:"allowed_hosts"`
-	AllowMCPServers      types.Bool   `tfsdk:"allow_mcp_servers"`
-	AllowPackageManagers types.Bool   `tfsdk:"allow_package_managers"`
+	Id                   types.String  `tfsdk:"id"`
+	WorkspaceId          types.String  `tfsdk:"workspace_id"`
+	Name                 types.String  `tfsdk:"name"`
+	Description          types.String  `tfsdk:"description"`
+	Type                 types.String  `tfsdk:"type"`
+	Scope                types.String  `tfsdk:"scope"`
+	NetworkingType       types.String  `tfsdk:"networking_type"`
+	AllowedHosts         types.List    `tfsdk:"allowed_hosts"`
+	AllowMCPServers      types.Bool    `tfsdk:"allow_mcp_servers"`
+	AllowPackageManagers types.Bool    `tfsdk:"allow_package_managers"`
 	Packages             PackagesValue `tfsdk:"packages"`
-	Metadata             types.Map    `tfsdk:"metadata"`
-	ForceDelete          types.Bool   `tfsdk:"force_delete"`
-	CreatedAt            types.String `tfsdk:"created_at"`
-	UpdatedAt            types.String `tfsdk:"updated_at"`
-	ArchivedAt           types.String `tfsdk:"archived_at"`
+	Metadata             types.Map     `tfsdk:"metadata"`
+	ForceDelete          types.Bool    `tfsdk:"force_delete"`
+	CreatedAt            types.String  `tfsdk:"created_at"`
+	UpdatedAt            types.String  `tfsdk:"updated_at"`
+	ArchivedAt           types.String  `tfsdk:"archived_at"`
 }
 
 func nullableBool(b *bool) types.Bool {
@@ -55,6 +57,14 @@ func (m *WIFEnvironmentModel) fill(e client.EnvironmentResponse) error {
 	m.CreatedAt = types.StringValue(e.CreatedAt)
 	m.UpdatedAt = types.StringValue(e.UpdatedAt)
 	m.ArchivedAt = nullableString(e.ArchivedAt)
+	m.Scope = nullableString(e.Scope)
+	if e.Config == nil || e.Config.Type == "" || e.Config.Type == "cloud" {
+		m.Type = types.StringValue("cloud")
+	} else if e.Config.Type == "self_hosted" {
+		m.Type = types.StringValue("self_hosted")
+	} else {
+		return fmt.Errorf("unrecognized environment config type %q; expected \"cloud\" or \"self_hosted\"", e.Config.Type)
+	}
 
 	emptyHosts := types.ListValueMust(types.StringType, []attr.Value{})
 
@@ -132,6 +142,18 @@ func (r *WIFEnvironmentResource) Schema(_ context.Context, _ resource.SchemaRequ
 				Optional: true,
 				Computed: true,
 			},
+			"type": schema.StringAttribute{
+				Optional:      true,
+				Computed:      true,
+				Default:       stringdefault.StaticString("cloud"),
+				Description:   `Environment type. Either "cloud" (default, Anthropic-hosted) or "self_hosted" (customer-hosted worker). Changing this value forces a new resource.`,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+			},
+			"scope": schema.StringAttribute{
+				Optional:    true,
+				Computed:    true,
+				Description: `Visibility scope. Either "organization" (visible to all accounts) or "account" (owning account only). Only meaningful for self_hosted environments.`,
+			},
 			"networking_type": schema.StringAttribute{
 				Optional:    true,
 				Computed:    true,
@@ -159,6 +181,7 @@ func (r *WIFEnvironmentResource) Schema(_ context.Context, _ resource.SchemaRequ
 			},
 			"packages": schema.StringAttribute{
 				Optional:    true,
+				Computed:    true,
 				CustomType:  PackagesType{},
 				Description: `JSON-encoded packages to pre-install. Example: {"pip":["pandas","numpy"],"npm":["express"]}. Supported managers: apt, cargo, gem, go, npm, pip.`,
 			},
@@ -197,28 +220,39 @@ func (r *WIFEnvironmentResource) Configure(_ context.Context, req resource.Confi
 }
 
 func (r *WIFEnvironmentResource) buildBody(ctx context.Context, data WIFEnvironmentModel) map[string]any {
-	networking := map[string]any{"type": data.NetworkingType.ValueString()}
-	if data.NetworkingType.ValueString() == "limited" {
-		var hosts []string
-		data.AllowedHosts.ElementsAs(ctx, &hosts, false)
-		if len(hosts) > 0 {
-			networking["allowed_hosts"] = hosts
+	var config map[string]any
+	envType := data.Type.ValueString()
+	if envType == "self_hosted" {
+		config = map[string]any{"type": "self_hosted"}
+	} else if envType == "" || envType == "cloud" {
+		networking := map[string]any{"type": data.NetworkingType.ValueString()}
+		if data.NetworkingType.ValueString() == "limited" {
+			var hosts []string
+			data.AllowedHosts.ElementsAs(ctx, &hosts, false)
+			if len(hosts) > 0 {
+				networking["allowed_hosts"] = hosts
+			}
+			networking["allow_mcp_servers"] = data.AllowMCPServers.ValueBool()
+			networking["allow_package_managers"] = data.AllowPackageManagers.ValueBool()
 		}
-		networking["allow_mcp_servers"] = data.AllowMCPServers.ValueBool()
-		networking["allow_package_managers"] = data.AllowPackageManagers.ValueBool()
-	}
-
-	config := map[string]any{"type": "cloud", "networking": networking}
-	if !data.Packages.IsNull() && !data.Packages.IsUnknown() && data.Packages.ValueString() != "" {
-		var pkgs map[string]interface{}
-		if err := json.Unmarshal([]byte(data.Packages.ValueString()), &pkgs); err == nil && len(pkgs) > 0 {
-			config["packages"] = pkgs
+		config = map[string]any{"type": "cloud", "networking": networking}
+		if !data.Packages.IsNull() && !data.Packages.IsUnknown() && data.Packages.ValueString() != "" {
+			var pkgs map[string]interface{}
+			if err := json.Unmarshal([]byte(data.Packages.ValueString()), &pkgs); err == nil && len(pkgs) > 0 {
+				config["packages"] = pkgs
+			}
 		}
+	} else {
+		// Pass unrecognized types through so the API rejects them explicitly.
+		config = map[string]any{"type": envType}
 	}
 
 	body := map[string]any{
 		"name":   data.Name.ValueString(),
 		"config": config,
+	}
+	if data.Type.ValueString() == "self_hosted" && !data.Scope.IsNull() && !data.Scope.IsUnknown() {
+		body["scope"] = data.Scope.ValueString()
 	}
 	if !data.Description.IsNull() && !data.Description.IsUnknown() {
 		body["description"] = data.Description.ValueString()
