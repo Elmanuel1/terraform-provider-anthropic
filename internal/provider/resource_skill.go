@@ -98,21 +98,17 @@ func (r *SkillResource) Configure(_ context.Context, req resource.ConfigureReque
 	r.data = data
 }
 
-func (r *SkillResource) requireWorkspaceKey(diags interface{ AddError(string, string) }) bool {
-	if r.data == nil || r.data.workspaceAPIKey == "" {
-		diags.AddError("Missing workspace API key",
-			"Set workspace_api_key in the provider block or ANTHROPIC_API_KEY environment variable. Required for anthropic_skill.")
-		return false
+func (r *SkillResource) skillClient(ctx context.Context, diags interface{ AddError(string, string) }) *client.SkillClient {
+	creds := resolveWorkspaceCredentials(ctx, r.data, "anthropic_skill", "", diags)
+	if creds == nil {
+		return nil
 	}
-	return true
-}
-
-func (r *SkillResource) skillClient() *client.SkillClient {
-	return client.NewSkillClient(auth.WorkspaceAPIKey{Key: r.data.workspaceAPIKey, Beta: auth.SkillsBeta})
+	return client.NewSkillClient(auth.WithBeta(creds, auth.SkillsBeta))
 }
 
 func (r *SkillResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	if !r.requireWorkspaceKey(&resp.Diagnostics) {
+	c := r.skillClient(ctx, &resp.Diagnostics)
+	if c == nil {
 		return
 	}
 	var data SkillModel
@@ -128,7 +124,6 @@ func (r *SkillResource) Create(ctx context.Context, req resource.CreateRequest, 
 		return
 	}
 
-	c := r.skillClient()
 	s, err := c.Create(ctx, data.DisplayTitle.ValueString(), sourceDir)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to create skill: %s", err))
@@ -142,7 +137,8 @@ func (r *SkillResource) Create(ctx context.Context, req resource.CreateRequest, 
 }
 
 func (r *SkillResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	if !r.requireWorkspaceKey(&resp.Diagnostics) {
+	c := r.skillClient(ctx, &resp.Diagnostics)
+	if c == nil {
 		return
 	}
 	var data SkillModel
@@ -150,8 +146,6 @@ func (r *SkillResource) Read(ctx context.Context, req resource.ReadRequest, resp
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	c := r.skillClient()
 	s, err := c.Read(ctx, data.ID.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read skill: %s", err))
@@ -172,7 +166,8 @@ func (r *SkillResource) Read(ctx context.Context, req resource.ReadRequest, resp
 }
 
 func (r *SkillResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	if !r.requireWorkspaceKey(&resp.Diagnostics) {
+	c := r.skillClient(ctx, &resp.Diagnostics)
+	if c == nil {
 		return
 	}
 	var plan, state SkillModel
@@ -181,8 +176,6 @@ func (r *SkillResource) Update(ctx context.Context, req resource.UpdateRequest, 
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	c := r.skillClient()
 
 	if !plan.SourceHash.Equal(state.SourceHash) {
 		_, err := c.CreateVersion(ctx, state.ID.ValueString(), plan.SourceDir.ValueString())
@@ -216,7 +209,8 @@ func (r *SkillResource) Update(ctx context.Context, req resource.UpdateRequest, 
 }
 
 func (r *SkillResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	if !r.requireWorkspaceKey(&resp.Diagnostics) {
+	c := r.skillClient(ctx, &resp.Diagnostics)
+	if c == nil {
 		return
 	}
 	var data SkillModel
@@ -224,8 +218,6 @@ func (r *SkillResource) Delete(ctx context.Context, req resource.DeleteRequest, 
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	c := r.skillClient()
 	if err := c.Delete(ctx, data.ID.ValueString()); err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete skill: %s", err))
 	}

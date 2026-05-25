@@ -34,11 +34,11 @@ type SkillVersionResponse struct {
 }
 
 type SkillClient struct {
-	creds      auth.WorkspaceAPIKey
+	creds      auth.Credentials
 	httpClient *http.Client
 }
 
-func NewSkillClient(creds auth.WorkspaceAPIKey) *SkillClient {
+func NewSkillClient(creds auth.Credentials) *SkillClient {
 	return &SkillClient{creds: creds, httpClient: defaultHTTPClient}
 }
 
