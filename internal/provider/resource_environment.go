@@ -181,6 +181,7 @@ func (r *WIFEnvironmentResource) Schema(_ context.Context, _ resource.SchemaRequ
 			},
 			"packages": schema.StringAttribute{
 				Optional:    true,
+				Computed:    true,
 				CustomType:  PackagesType{},
 				Description: `JSON-encoded packages to pre-install. Example: {"pip":["pandas","numpy"],"npm":["express"]}. Supported managers: apt, cargo, gem, go, npm, pip.`,
 			},
