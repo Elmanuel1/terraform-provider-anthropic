@@ -1,5 +1,6 @@
 ---
 page_title: "Provider: anthropic"
+subcategory: ""
 description: |-
   Use the Anthropic provider to manage workspaces, agents, environments, vaults, vault credentials, and memory stores on the Anthropic platform.
 ---
