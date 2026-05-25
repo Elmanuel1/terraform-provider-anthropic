@@ -77,14 +77,8 @@ func (p *anthropicProvider) Configure(ctx context.Context, req provider.Configur
 		return
 	}
 
-	adminKey := cfg.AdminAPIKey.ValueString()
-	if adminKey == "" {
-		adminKey = os.Getenv("ANTHROPIC_ADMIN_API_KEY")
-	}
-	workspaceAPIKey := cfg.WorkspaceAPIKey.ValueString()
-	if workspaceAPIKey == "" {
-		workspaceAPIKey = os.Getenv("ANTHROPIC_API_KEY")
-	}
+	adminKey := coalesce(cfg.AdminAPIKey.ValueString(), os.Getenv("ANTHROPIC_ADMIN_API_KEY"))
+	workspaceAPIKey := coalesce(cfg.WorkspaceAPIKey.ValueString(), os.Getenv("ANTHROPIC_API_KEY"))
 	ruleID := cfg.FederationRuleID.ValueString()
 	orgID := cfg.OrganizationID.ValueString()
 	svcID := cfg.ServiceAccountID.ValueString()
