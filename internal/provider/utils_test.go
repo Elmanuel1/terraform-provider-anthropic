@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/Elmanuel1/terraform-provider-anthropic/internal/client"
-	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
@@ -93,6 +92,7 @@ func TestWIFEnvironmentModel_Fill_LimitedNetworking(t *testing.T) {
 		CreatedAt: "2024-01-01T00:00:00Z",
 		UpdatedAt: "2024-01-01T00:00:00Z",
 		Config: &struct {
+			Type       string          `json:"type"`
 			Packages   json.RawMessage `json:"packages"`
 			Networking *struct {
 				Type                 string   `json:"type"`
@@ -101,6 +101,7 @@ func TestWIFEnvironmentModel_Fill_LimitedNetworking(t *testing.T) {
 				AllowPackageManagers *bool    `json:"allow_package_managers"`
 			} `json:"networking"`
 		}{
+			Type: "cloud",
 			Networking: &struct {
 				Type                 string   `json:"type"`
 				AllowedHosts         []string `json:"allowed_hosts"`
@@ -138,7 +139,7 @@ func TestBuildAgentBody_MinimalFields(t *testing.T) {
 		ModelSpeed:  types.StringValue("standard"),
 		System:      types.StringNull(),
 		Description: types.StringNull(),
-		Tools:       jsontypes.NewNormalizedNull(),
+		Tools:       NewJSONSubsetNull(),
 	}
 
 	body, err := buildAgentBody(data)
@@ -174,7 +175,7 @@ func TestBuildAgentBody_AllFields(t *testing.T) {
 		ModelSpeed:  types.StringValue("fast"),
 		System:      types.StringValue("you are helpful"),
 		Description: types.StringValue("desc"),
-		Tools:       jsontypes.NewNormalizedValue(`[{"type":"agent_toolset_20260401"}]`),
+		Tools:       NewJSONSubsetValue(`[{"type":"agent_toolset_20260401"}]`),
 	}
 
 	body, err := buildAgentBody(data)
@@ -201,7 +202,7 @@ func TestBuildAgentBody_EmptyToolsArrayIncluded(t *testing.T) {
 		ModelSpeed:  types.StringValue("standard"),
 		System:      types.StringNull(),
 		Description: types.StringNull(),
-		Tools:       jsontypes.NewNormalizedValue("[]"),
+		Tools:       NewJSONSubsetValue("[]"),
 	}
 
 	body, err := buildAgentBody(data)
@@ -218,6 +219,73 @@ func TestBuildAgentBody_EmptyToolsArrayIncluded(t *testing.T) {
 	}
 }
 
+
+func TestWIFEnvironmentModel_Fill_SelfHosted(t *testing.T) {
+	scope := "organization"
+	var m WIFEnvironmentModel
+	if err := m.fill(client.EnvironmentResponse{
+		ID:        "env_3",
+		Name:      "self-hosted-env",
+		Scope:     &scope,
+		CreatedAt: "2024-01-01T00:00:00Z",
+		UpdatedAt: "2024-01-02T00:00:00Z",
+		Config: &struct {
+			Type       string          `json:"type"`
+			Packages   json.RawMessage `json:"packages"`
+			Networking *struct {
+				Type                 string   `json:"type"`
+				AllowedHosts         []string `json:"allowed_hosts"`
+				AllowMCPServers      *bool    `json:"allow_mcp_servers"`
+				AllowPackageManagers *bool    `json:"allow_package_managers"`
+			} `json:"networking"`
+		}{
+			Type: "self_hosted",
+		},
+	}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if m.Type.ValueString() != "self_hosted" {
+		t.Errorf("expected type=self_hosted, got %s", m.Type.ValueString())
+	}
+	if m.Scope.ValueString() != "organization" {
+		t.Errorf("expected scope=organization, got %s", m.Scope.ValueString())
+	}
+	if m.NetworkingType.ValueString() != "unrestricted" {
+		t.Errorf("expected networking_type=unrestricted, got %s", m.NetworkingType.ValueString())
+	}
+}
+
+func TestWIFEnvironmentModel_Fill_CloudDefault(t *testing.T) {
+	var m WIFEnvironmentModel
+	if err := m.fill(client.EnvironmentResponse{
+		ID:        "env_4",
+		Name:      "cloud-env",
+		CreatedAt: "2024-01-01T00:00:00Z",
+		UpdatedAt: "2024-01-02T00:00:00Z",
+		Config: &struct {
+			Type       string          `json:"type"`
+			Packages   json.RawMessage `json:"packages"`
+			Networking *struct {
+				Type                 string   `json:"type"`
+				AllowedHosts         []string `json:"allowed_hosts"`
+				AllowMCPServers      *bool    `json:"allow_mcp_servers"`
+				AllowPackageManagers *bool    `json:"allow_package_managers"`
+			} `json:"networking"`
+		}{
+			Type: "cloud",
+		},
+	}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if m.Type.ValueString() != "cloud" {
+		t.Errorf("expected type=cloud, got %s", m.Type.ValueString())
+	}
+	if !m.Scope.IsNull() {
+		t.Errorf("expected null scope for cloud env, got %s", m.Scope.ValueString())
+	}
+}
 
 func TestAgentCoreModel_Fill(t *testing.T) {
 	desc := "an agent"

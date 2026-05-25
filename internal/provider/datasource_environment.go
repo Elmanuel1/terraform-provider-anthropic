@@ -17,19 +17,21 @@ type EnvironmentDataSource struct {
 }
 
 type EnvironmentDataModel struct {
-	Id                   types.String `tfsdk:"id"`
-	WorkspaceId          types.String `tfsdk:"workspace_id"`
-	Name                 types.String `tfsdk:"name"`
-	Description          types.String `tfsdk:"description"`
-	NetworkingType       types.String `tfsdk:"networking_type"`
-	AllowedHosts         types.List   `tfsdk:"allowed_hosts"`
-	AllowMCPServers      types.Bool   `tfsdk:"allow_mcp_servers"`
-	AllowPackageManagers types.Bool   `tfsdk:"allow_package_managers"`
+	Id                   types.String  `tfsdk:"id"`
+	WorkspaceId          types.String  `tfsdk:"workspace_id"`
+	Name                 types.String  `tfsdk:"name"`
+	Description          types.String  `tfsdk:"description"`
+	Type                 types.String  `tfsdk:"type"`
+	Scope                types.String  `tfsdk:"scope"`
+	NetworkingType       types.String  `tfsdk:"networking_type"`
+	AllowedHosts         types.List    `tfsdk:"allowed_hosts"`
+	AllowMCPServers      types.Bool    `tfsdk:"allow_mcp_servers"`
+	AllowPackageManagers types.Bool    `tfsdk:"allow_package_managers"`
 	Packages             PackagesValue `tfsdk:"packages"`
-	Metadata             types.Map    `tfsdk:"metadata"`
-	CreatedAt            types.String `tfsdk:"created_at"`
-	UpdatedAt            types.String `tfsdk:"updated_at"`
-	ArchivedAt           types.String `tfsdk:"archived_at"`
+	Metadata             types.Map     `tfsdk:"metadata"`
+	CreatedAt            types.String  `tfsdk:"created_at"`
+	UpdatedAt            types.String  `tfsdk:"updated_at"`
+	ArchivedAt           types.String  `tfsdk:"archived_at"`
 }
 
 func (m *EnvironmentDataModel) fill(e client.EnvironmentResponse) error {
@@ -39,6 +41,12 @@ func (m *EnvironmentDataModel) fill(e client.EnvironmentResponse) error {
 	m.CreatedAt = types.StringValue(e.CreatedAt)
 	m.UpdatedAt = types.StringValue(e.UpdatedAt)
 	m.ArchivedAt = nullableString(e.ArchivedAt)
+	m.Scope = nullableString(e.Scope)
+	if e.Config != nil && e.Config.Type == "self_hosted" {
+		m.Type = types.StringValue("self_hosted")
+	} else {
+		m.Type = types.StringValue("cloud")
+	}
 	m.Metadata = fillMetadata(e.Metadata)
 
 	emptyHosts := types.ListValueMust(types.StringType, []attr.Value{})
@@ -100,6 +108,8 @@ func (d *EnvironmentDataSource) Schema(_ context.Context, _ datasource.SchemaReq
 			"workspace_id":           schema.StringAttribute{Optional: true, Description: "Workspace ID. Required when using WIF authentication."},
 			"name":                   schema.StringAttribute{Computed: true},
 			"description":            schema.StringAttribute{Computed: true},
+			"type":                   schema.StringAttribute{Computed: true, Description: `Environment type: "cloud" or "self_hosted".`},
+			"scope":                  schema.StringAttribute{Computed: true, Description: `Visibility scope: "organization" or "account". Only set for self_hosted environments.`},
 			"networking_type":        schema.StringAttribute{Computed: true},
 			"allowed_hosts":          schema.ListAttribute{Computed: true, ElementType: types.StringType},
 			"allow_mcp_servers":      schema.BoolAttribute{Computed: true},
