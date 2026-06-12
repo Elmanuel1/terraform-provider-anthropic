@@ -132,12 +132,13 @@ These four bugs were fixed on `anthropic_agent` / `anthropic_skill`. Status of e
 - **`resources` deferred.** Partial update ("omit to preserve") leaves any out-of-band value intact; Read does not map it into state. Modeled typed when added, never a string.
 - **`agent` nested, `version` optional + computed.** Omit `agent.version` → API resolves latest at create, returns concrete version; store it. A later agent-version bump does **not** auto-update the deployment; changing it is an explicit in-place update.
 - **Delete = archive.** `Delete` always calls `POST /{id}/archive`; no hard delete, no `force_delete`.
+- **Fully-Computed nested object must be `types.Object`.** A Computed-only nested attribute (`paused_reason`) is unknown at plan time, which a Go struct pointer cannot represent (terraform-plugin-framework errors: "target type cannot handle unknown values"). Model it as `types.Object`, not `*struct`. User-provided or Required nested objects (`agent`, `schedule`, `initial_events`) are fine as struct pointers/slices because their unknown lives only in leaf `types.*` fields. Caught locally by a `dev_overrides` plan before any API call.
 
 ---
 
 ## Dependency Ledger
 
-Rows: **17 verified, 0 accepted-risk, 1 assumed (#10, closed by an acceptance test, not docs).** Two rows corrected against the authoritative create schema (`schedule` optional; `initial_events` required and typed). The 3 `JSONSubset` sibling bugs (#4/#5/#13) are avoided by the typed-schema choice; the #15 computed-field bug is addressed by the computed-field rule in Consequences.
+Rows: **18 verified, 0 accepted-risk, 0 assumed.** Row #10 was closed empirically on 2026-06-12 by a live `apply` then no-op `plan` (see below). Two rows were corrected against the authoritative create schema (`schedule` optional; `initial_events` required and typed). The 3 `JSONSubset` sibling bugs (#4/#5/#13) are avoided by the typed-schema choice; the #15 computed-field bug is addressed by the computed-field rule in Consequences.
 
 | # | Dependency | Assumed behavior we're relying on | Evidence | Status |
 |---|---|---|---|---|
@@ -157,8 +158,8 @@ Rows: **17 verified, 0 accepted-risk, 1 assumed (#10, closed by an acceptance te
 | 7 | `resources` deferred | not modeled this iteration; partial-update "omit to preserve" keeps any out-of-band value intact | retrieve doc + update "omit to preserve" semantics | ✅ VERIFIED (out of scope this iteration) |
 | 8 | `agent` resolves concrete version | response always carries a concrete `agent.version` even if input omitted | create/retrieve doc: "A resolved agent reference with a concrete version", informing `agent.version` optional+computed | ✅ VERIFIED |
 | 9 | No existing deploy/schedule/run code | nothing to duplicate; resource is genuinely new | `grep -ri "deployment\|schedule\|cron\|pause" internal/` → empty | ✅ VERIFIED |
-| 10 | API round-trips `initial_events` faithfully | response preserves event/content **order** and does not enrich modeled fields in a way element-wise typed comparison flags (the typed cousin of bug #13) | NOT verified from docs alone. **Close via acceptance test**: `apply` → immediate `plan` must be a no-op | ❌ ASSUMED (verify in acceptance test before release) |
-| 11 | Computed-field plan stability | volatile computed fields go "known after apply" on change, never asserting a stale value (the #15 lesson) | Design rule set (plain `Computed`, `UseStateForUnknown` only on `id`/`created_at`); confirm with `apply` → no-op `plan` test | ✅ VERIFIED by design; confirmed by test at impl |
+| 10 | API round-trips `initial_events` faithfully | response preserves event/content **order** and does not enrich modeled fields in a way element-wise typed comparison flags (the typed cousin of bug #13) | Live test 2026-06-12: `terraform apply` (env + agent + scheduled and manual deployments) then immediate `terraform plan` returned "No changes" against `api.anthropic.com` | ✅ VERIFIED (live apply then no-op plan) |
+| 11 | Computed-field plan stability | volatile computed fields go "known after apply" on change, never asserting a stale value (the #15 lesson) | Design rule (plain `Computed`, `UseStateForUnknown` only on `id`/`created_at`); confirmed by the same 2026-06-12 no-op plan. `vault_ids`/`metadata` null-vs-empty produced no diff | ✅ VERIFIED (live no-op plan) |
 
 > The schema is **fully typed**: typed nested attributes mirroring the API request/response, a string only where the API field is a string. `json_subset_type.go` / `packages_type.go` are **not used** here.
 
