@@ -41,9 +41,12 @@ type deploymentScheduleModel struct {
 	UpcomingRunsAt types.List   `tfsdk:"upcoming_runs_at"`
 }
 
-type deploymentPausedReasonModel struct {
-	Type      types.String `tfsdk:"type"`
-	ErrorType types.String `tfsdk:"error_type"`
+// pausedReasonAttrTypes describes the paused_reason object. It is modeled as a
+// types.Object (not a Go struct pointer) because the attribute is fully Computed
+// and therefore unknown at plan time, which a struct pointer cannot represent.
+var pausedReasonAttrTypes = map[string]attr.Type{
+	"type":       types.StringType,
+	"error_type": types.StringType,
 }
 
 type DeploymentModel struct {
@@ -59,7 +62,7 @@ type DeploymentModel struct {
 	Metadata      types.Map                     `tfsdk:"metadata"`
 	Paused        types.Bool                    `tfsdk:"paused"`
 	Status        types.String                  `tfsdk:"status"`
-	PausedReason  *deploymentPausedReasonModel  `tfsdk:"paused_reason"`
+	PausedReason  types.Object                  `tfsdk:"paused_reason"`
 	CreatedAt     types.String                  `tfsdk:"created_at"`
 	UpdatedAt     types.String                  `tfsdk:"updated_at"`
 	ArchivedAt    types.String                  `tfsdk:"archived_at"`
@@ -109,16 +112,18 @@ func (m *DeploymentModel) fill(d client.DeploymentResponse) diag.Diagnostics {
 	m.Paused = types.BoolValue(d.Status == "paused")
 
 	if d.PausedReason != nil {
-		pr := &deploymentPausedReasonModel{
-			Type:      types.StringValue(d.PausedReason.Type),
-			ErrorType: types.StringNull(),
-		}
+		errType := types.StringNull()
 		if d.PausedReason.Error != nil {
-			pr.ErrorType = types.StringValue(d.PausedReason.Error.Type)
+			errType = types.StringValue(d.PausedReason.Error.Type)
 		}
-		m.PausedReason = pr
+		obj, objDiags := types.ObjectValue(pausedReasonAttrTypes, map[string]attr.Value{
+			"type":       types.StringValue(d.PausedReason.Type),
+			"error_type": errType,
+		})
+		diags.Append(objDiags...)
+		m.PausedReason = obj
 	} else {
-		m.PausedReason = nil
+		m.PausedReason = types.ObjectNull(pausedReasonAttrTypes)
 	}
 
 	m.CreatedAt = types.StringValue(d.CreatedAt)

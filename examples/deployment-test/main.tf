@@ -7,36 +7,27 @@ terraform {
   }
 }
 
-# Single-key smoke test for anthropic_deployment.
-# Set ANTHROPIC_API_KEY (workspace API key) in the environment, then provide an
-# existing agent_id and environment_id from the same workspace.
+# Self-contained single-key smoke test for anthropic_deployment.
+# Reads the workspace key from ANTHROPIC_API_KEY in the environment, then
+# creates an environment, an agent, and two deployments (scheduled + manual).
+provider "anthropic" {}
 
-variable "workspace_api_key" {
-  type    = string
-  default = ""
+resource "anthropic_environment" "test" {
+  name = "tf-smoke-deploy-env"
 }
 
-variable "agent_id" {
-  type        = string
-  description = "An existing agent_... ID in the workspace."
-}
-
-variable "environment_id" {
-  type        = string
-  description = "An existing env_... ID in the workspace."
-}
-
-provider "anthropic" {
-  workspace_api_key = var.workspace_api_key
+resource "anthropic_agent" "test" {
+  name  = "tf-smoke-deploy-agent"
+  model = "claude-haiku-4-5"
 }
 
 # Scheduled deployment.
 resource "anthropic_deployment" "nightly" {
   name           = "tf-smoke-nightly"
-  environment_id = var.environment_id
+  environment_id = anthropic_environment.test.id
 
   agent = {
-    id = var.agent_id
+    id = anthropic_agent.test.id
   }
 
   initial_events = [
@@ -55,10 +46,10 @@ resource "anthropic_deployment" "nightly" {
 # Manual deployment (no schedule).
 resource "anthropic_deployment" "manual" {
   name           = "tf-smoke-manual"
-  environment_id = var.environment_id
+  environment_id = anthropic_environment.test.id
 
   agent = {
-    id = var.agent_id
+    id = anthropic_agent.test.id
   }
 
   initial_events = [
