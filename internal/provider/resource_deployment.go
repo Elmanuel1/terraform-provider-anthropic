@@ -391,11 +391,17 @@ func (r *WIFDeploymentResource) Create(ctx context.Context, req resource.CreateR
 		return
 	}
 	if data.Paused.ValueBool() {
-		dep, err = c.Pause(ctx, dep.ID)
-		if err != nil {
-			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Deployment created but pausing failed: %s", err))
+		paused, pauseErr := c.Pause(ctx, dep.ID)
+		if pauseErr != nil {
+			// The deployment was created remotely. Persist it (active) so it is
+			// tracked rather than orphaned, then surface the error. A re-apply
+			// reconciles the paused state through the update path.
+			resp.Diagnostics.Append(data.fill(*dep)...)
+			resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Deployment %s created but pausing failed; it exists and is active. Re-apply to pause it: %s", dep.ID, pauseErr))
 			return
 		}
+		dep = paused
 	}
 	resp.Diagnostics.Append(data.fill(*dep)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
@@ -447,15 +453,22 @@ func (r *WIFDeploymentResource) Update(ctx context.Context, req resource.UpdateR
 	}
 	wantPaused := plan.Paused.ValueBool()
 	if wantPaused != (dep.Status == "paused") {
+		var toggled *client.DeploymentResponse
 		if wantPaused {
-			dep, err = c.Pause(ctx, plan.Id.ValueString())
+			toggled, err = c.Pause(ctx, plan.Id.ValueString())
 		} else {
-			dep, err = c.Unpause(ctx, plan.Id.ValueString())
+			toggled, err = c.Unpause(ctx, plan.Id.ValueString())
 		}
 		if err != nil {
-			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to update deployment pause state: %s", err))
+			// The field update already succeeded remotely (dep is the post-update
+			// object). Persist it so state is not left on stale pre-update values,
+			// then surface the error. A re-apply reconciles the paused state.
+			resp.Diagnostics.Append(plan.fill(*dep)...)
+			resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Deployment updated but changing pause state failed; re-apply to reconcile: %s", err))
 			return
 		}
+		dep = toggled
 	}
 	resp.Diagnostics.Append(plan.fill(*dep)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
