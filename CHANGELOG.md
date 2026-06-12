@@ -4,6 +4,14 @@ All notable changes to this provider are documented here.
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- `anthropic_deployment` resource and data source for the Managed Agents Deployments API (`/v1/deployments`). Manages an agent bound to an environment with seed `initial_events` and an optional cron `schedule`; omit `schedule` for a manual (on-demand) deployment. Supports in-place updates, `paused` toggling via the pause/unpause endpoints, archive-on-destroy, and import by `deployment_id` or `workspace_id/deployment_id`. Schema is fully typed (no JSON-string fields); `initial_events` is text-only this iteration and `resources` (mounted repositories/files/memory stores) is not yet modeled.
+
+---
+
 ## [0.5.0] (2026-05-25)
 
 ### Added

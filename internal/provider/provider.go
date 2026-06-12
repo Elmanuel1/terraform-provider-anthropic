@@ -115,6 +115,7 @@ func (p *anthropicProvider) DataSources(_ context.Context) []func() datasource.D
 		NewVaultCredentialDataSource,
 		NewMemoryStoreDataSource,
 		NewSkillDataSource,
+		NewDeploymentDataSource,
 	}
 }
 
@@ -127,5 +128,6 @@ func (p *anthropicProvider) Resources(_ context.Context) []func() resource.Resou
 		NewWIFVaultCredentialResource,
 		NewMemoryStoreResource,
 		NewSkillResource,
+		NewDeploymentResource,
 	}
 }
