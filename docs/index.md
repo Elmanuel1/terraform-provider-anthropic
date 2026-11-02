@@ -64,3 +64,4 @@ provider "anthropic" {
 - `federation_rule_id` (String) Federation rule ID (`fdrl_...`).
 - `organization_id` (String) Anthropic organization UUID.
 - `service_account_id` (String) Service account ID (`svac_...`).
+- `base_url` (String) Base URL of the API, for an Anthropic-compatible server such as a self-hosted agentd (`http://agentd:8080`). Defaults to `ANTHROPIC_BASE_URL`, then `https://api.anthropic.com`. Workload identity federation still exchanges its token with `api.anthropic.com`.

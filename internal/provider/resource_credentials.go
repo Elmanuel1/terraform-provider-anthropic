@@ -19,12 +19,12 @@ func resolveWorkspaceCredentials(ctx context.Context, data *providerData, resour
 
 	if data.wif != nil && workspaceID != "" {
 		tflog.Debug(ctx, fmt.Sprintf("%s: using WIF authentication", resourceName), map[string]any{"workspace_id": workspaceID})
-		return auth.WIFBearer{Config: data.wif, WorkspaceID: workspaceID}
+		return auth.WithBaseURL(auth.WIFBearer{Config: data.wif, WorkspaceID: workspaceID}, data.baseURL)
 	}
 
 	if data.workspaceAPIKey != "" {
 		tflog.Debug(ctx, fmt.Sprintf("%s: using workspace API key authentication", resourceName))
-		return auth.WorkspaceAPIKey{Key: data.workspaceAPIKey}
+		return auth.WithBaseURL(auth.WorkspaceAPIKey{Key: data.workspaceAPIKey}, data.baseURL)
 	}
 
 	if workspaceID != "" && data.wifErr != nil {

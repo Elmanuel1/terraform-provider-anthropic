@@ -99,18 +99,22 @@ func (c *SkillClient) Read(ctx context.Context, id string) (*SkillResponse, erro
 }
 
 // Delete removes a skill and all its versions. 404 is treated as success.
-// The API requires all versions to be deleted before the skill itself can be deleted.
+// Versions are deleted first. The API refuses to delete a skill's only
+// version (400, "Delete the Skill, or create another version first"), so a
+// 400 on the last remaining version leaves it for the skill delete.
 func (c *SkillClient) Delete(ctx context.Context, id string) error {
-	// List all versions and delete each one first.
 	versions, err := c.listVersions(ctx, id)
 	if err != nil {
 		return fmt.Errorf("deleting skill: listing versions: %w", err)
 	}
-	for _, v := range versions {
+	for i, v := range versions {
 		raw, status, err := c.doJSON(ctx, http.MethodDelete,
 			skillsPath+"/"+url.PathEscape(id)+"/versions/"+url.PathEscape(v)+"?beta=true", nil)
 		if err != nil {
 			return fmt.Errorf("deleting skill version %q: %w", v, err)
+		}
+		if status == http.StatusBadRequest && i == len(versions)-1 {
+			break
 		}
 		if status != http.StatusOK && status != http.StatusNoContent && status != http.StatusNotFound {
 			return fmt.Errorf("deleting skill version %q returned HTTP %d: %s", v, status, raw)
