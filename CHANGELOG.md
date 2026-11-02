@@ -4,6 +4,19 @@ All notable changes to this provider are documented here.
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- `base_url` provider attribute (default `ANTHROPIC_BASE_URL`, then `https://api.anthropic.com`) to run against an Anthropic-compatible server such as a self-hosted agentd. Every request of every resource and data source goes to it.
+- Acceptance tests (`TF_ACC=1`) for `anthropic_environment`, `anthropic_agent`, `anthropic_deployment`, `anthropic_memory_store`, `anthropic_vault` and `anthropic_skill`, runnable against any server `ANTHROPIC_BASE_URL` names.
+
+### Fixed
+
+- Destroying an `anthropic_skill` no longer fails on its last version: the API refuses to delete a skill's only version, so the provider leaves it to the skill delete.
+
+---
+
 ## [0.6.0] (2026-06-13)
 
 ### Added

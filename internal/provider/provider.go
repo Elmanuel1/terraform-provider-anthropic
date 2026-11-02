@@ -2,10 +2,12 @@ package provider
 
 import (
 	"context"
+	"net/url"
 	"os"
 
 	"github.com/Elmanuel1/terraform-provider-anthropic/internal/auth"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -25,6 +27,7 @@ type providerConfig struct {
 	FederationRuleID types.String `tfsdk:"federation_rule_id"`
 	OrganizationID   types.String `tfsdk:"organization_id"`
 	ServiceAccountID types.String `tfsdk:"service_account_id"`
+	BaseURL          types.String `tfsdk:"base_url"`
 }
 
 type providerData struct {
@@ -32,6 +35,12 @@ type providerData struct {
 	workspaceAPIKey string
 	wif             *auth.WIFConfig
 	wifErr          error
+	baseURL         *url.URL
+}
+
+// admin is the Admin API key credential, routed to the configured base URL.
+func (d *providerData) admin(beta string) auth.Credentials {
+	return auth.WithBeta(auth.WithBaseURL(auth.AdminAPIKey{Key: d.adminKey}, d.baseURL), beta)
 }
 
 func (p *anthropicProvider) Metadata(_ context.Context, _ provider.MetadataRequest, resp *provider.MetadataResponse) {
@@ -66,6 +75,12 @@ func (p *anthropicProvider) Schema(_ context.Context, _ provider.SchemaRequest, 
 				Optional:    true,
 				Description: "Service account ID (svac_...). Required for anthropic_agent, anthropic_environment, anthropic_vault, anthropic_vault_credential when using WIF.",
 			},
+			"base_url": schema.StringAttribute{
+				Optional: true,
+				Description: "Base URL of the API, for an Anthropic-compatible server such as a self-hosted agentd " +
+					"(http://agentd:8080). Defaults to ANTHROPIC_BASE_URL, then https://api.anthropic.com. " +
+					"Workload identity federation still exchanges its token with api.anthropic.com.",
+			},
 		},
 	}
 }
@@ -85,11 +100,22 @@ func (p *anthropicProvider) Configure(ctx context.Context, req provider.Configur
 
 	wifCfg, wifErr := auth.NewWIFConfig(ruleID, orgID, svcID)
 
+	var baseURL *url.URL
+	if raw := coalesce(cfg.BaseURL.ValueString(), os.Getenv("ANTHROPIC_BASE_URL")); raw != "" {
+		u, err := auth.ParseBaseURL(raw)
+		if err != nil {
+			resp.Diagnostics.AddAttributeError(path.Root("base_url"), "Invalid base_url", err.Error())
+			return
+		}
+		baseURL = u
+	}
+
 	data := &providerData{
 		adminKey:        adminKey,
 		workspaceAPIKey: workspaceAPIKey,
 		wif:             wifCfg,
 		wifErr:          wifErr,
+		baseURL:         baseURL,
 	}
 	resp.DataSourceData = data
 	resp.ResourceData = data
